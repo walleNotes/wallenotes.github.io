@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="XPII_t91-eBghgHpuxic4lhWHlvlxojKoB_lrpfuTwk">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"github.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":"ture"},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":true},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Cassandra 数据库的监控方案">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Cassandra 监控方案">
+<meta property="og:url" content="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/index.html">
+<meta property="og:site_name" content="walle&#39;s Notes">
+<meta property="og:description" content="Cassandra 数据库的监控方案">
+<meta property="og:image" content="https://github.com/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/photo001.png">
+<meta property="og:image" content="https://github.com/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/photo002.png">
+<meta property="og:image" content="https://github.com/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/photo003.png">
+<meta property="og:image" content="https://github.com/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/photo004.png">
+<meta property="article:published_time" content="2020-04-18T02:31:09.000Z">
+<meta property="article:modified_time" content="2021-10-11T04:25:00.968Z">
+<meta property="article:author" content="Eter">
+<meta property="article:tag" content="Cassandra">
+<meta property="article:tag" content="NoSQL">
+<meta property="article:tag" content="Prometheus">
+<meta property="article:tag" content="Grafana">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://github.com/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/photo001.png">
+
+<link rel="canonical" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>Cassandra 监控方案 | walle's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">walle's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Quick notes</p>
+  </div>
+
+  <div class="site-nav-right"></div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">27</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">19</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">20</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Eter">
+      <meta itemprop="description" content="但行好事 莫问前程">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="walle's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Cassandra 监控方案
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-18 10:31:09" itemprop="dateCreated datePublished" datetime="2020-04-18T10:31:09+08:00">2020-04-18</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index">
+                    <span itemprop="name">数据库</span>
+                  </a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/" itemprop="url" rel="index">
+                    <span itemprop="name">Cassandra</span>
+                  </a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.6k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>5 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote class="blockquote-center"><p>Cassandra 数据库的监控方案 </p>
+</blockquote>
+
+<a id="more"></a>
+
+<p>本文主要讲解 Cassandra 数据库的监控方案，以及部署过程，<br>主要由 Prometheus 进行数据采集、数据存储、数据处理，而 Grafana 则是用于监控页面展示。</p>
+<h1 id="基本概念"><a href="#基本概念" class="headerlink" title="基本概念"></a>基本概念</h1><h2 id="Prometheus-简介"><a href="#Prometheus-简介" class="headerlink" title="Prometheus 简介"></a>Prometheus 简介</h2><p>Prometheus 是一个开源的监控框架，它通过不同的组件完成数据的采集，数据的存储，告警，其中 Prometheus server 只提供了数据存储（time series data），数据的处理（提供了丰富的查询语法[查询，统计，聚合等等]），数据则通过众多的插件（prometheus 称之为exporters）来暴露一个 http 服务的接口给 Prometheus 定时抓取， 告警则通过 Altermanger。</p>
+<div class="note info">
+            <p>Prometheus 目前只能通过 PULL 的方式来获取数据 </p>
+          </div>
+
+## Grafana 简介
+Grafana 是一个开源的度量分析与可视化套件。纯 Javascript 开发的前端工具，通过访问库（如InfluxDB），展示自定义报表、显示图表等。大多使用在时序数据的监控方面，如同Kibana类似。Grafana的UI更加灵活，有丰富的插件，功能强大。
+
+Grafana支持许多不同的数据源。每个数据源都有一个特定的查询编辑器,该编辑器定制的特性和功能是公开的特定数据来源。
+
+<div class="note info">
+            <p> 官方支持以下数据源: </p><ul><li>Prometheus</li><li>Graphite </li><li>InfluxDB </li><li>OpenTSDB</li><li>MySQL </li><li>Elasticsearch </li><li>CloudWatch</li><li>KairosDB</li></ul>
+          </div>
+
+<h1 id="监控系统部署"><a href="#监控系统部署" class="headerlink" title="监控系统部署"></a>监控系统部署</h1><div class="note info">
+            <p>项目路径 <code>/work/cassandra</code></p>
+          </div>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pwd</span></span><br><span class="line">/work/cassandra</span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># ls</span></span><br><span class="line">bin conf data doc interface javadoc lib logs pylib tools</span><br><span class="line"><span class="comment">#</span></span><br></pre></td></tr></table></figure>
+
+<p>监控系统部署分为以下几个步骤： </p>
+<ul>
+<li>准备安装包</li>
+<li>安装 <code>JMX exporter</code></li>
+<li>安装 Prometheus</li>
+<li>安装 Grafana</li>
+<li>导入 Dashboard</li>
+<li>效果展示</li>
+</ul>
+<h2 id="准备安装包"><a href="#准备安装包" class="headerlink" title="准备安装包"></a>准备安装包</h2><p><a href="https://github.com/prometheus/prometheus/releases/download/v2.17.1/prometheus-2.17.1.linux-amd64.tar.gz">Prometheus v2.17.1 下载</a></p>
+<p><a href="https://github.com/grafana/grafana/archive/v6.7.2.zip">Grafana v6.7.2 下载</a></p>
+<a href="/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/jmx_prometheus_javaagent-0.12.0.jar" title="jmx_prometheus_javaagent 下载">jmx_prometheus_javaagent 下载</a>
+
+
+<h2 id="启用-JMX-exporter"><a href="#启用-JMX-exporter" class="headerlink" title="启用 JMX exporter"></a>启用 <code>JMX exporter</code></h2><div class="note info">
+            <p>启用 <code>JMX exporter</code> 需要在对 Cassandra 数据库集群各个节点操作。<br>服务器列表</p><ul><li>192.168.1.66</li><li>192.168.1.67</li><li>192.168.1.78</li></ul>
+          </div>
+
+<ul>
+<li><p>拷贝 <code>jmx_prometheus_javaagent-0.12.0.jar</code> 文件到 <code>${CASSANDRA_HOME}/lib</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># cp jmx_prometheus_javaagent-0.12.0.jar $&#123;CASSANDRA_HOME&#125;/lib</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># chown cassandra.cassandra $&#123;CASSANDRA_HOME&#125;/lib/jmx_prometheus_javaagent-0.12.0.jar</span></span><br><span class="line"><span class="comment">#</span></span><br></pre></td></tr></table></figure></li>
+<li><p><code>${CASSANDRA_HOME}/conf</code> 新增 jmx.yaml 配置</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">lowercaseOutputLabelNames:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">lowercaseOutputName:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">whitelistObjectNames:</span> <span class="string">["org.apache.cassandra.metrics:*"]</span></span><br><span class="line"><span class="comment"># ColumnFamily is an alias for Table metrics</span></span><br><span class="line"><span class="attr">blacklistObjectNames:</span> <span class="string">["org.apache.cassandra.metrics:type=ColumnFamily,*"]</span></span><br><span class="line"><span class="attr">rules:</span></span><br><span class="line"><span class="comment"># Generic gauges with 0-2 labels</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">pattern:</span> <span class="string">org.apache.cassandra.metrics&lt;type=(\S*)(?:,</span> <span class="string">((?!scope)\S*)=(\S*))?(?:,</span> <span class="string">scope=(\S*))?,</span> <span class="string">name=(\S*)&gt;&lt;&gt;Value</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">cassandra_$1_$5</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">GAUGE</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="string">"$1"</span><span class="string">:</span> <span class="string">"$4"</span></span><br><span class="line">    <span class="string">"$2"</span><span class="string">:</span> <span class="string">"$3"</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># Emulate Prometheus 'Summary' metrics for the exported 'Histogram's.</span></span><br><span class="line"><span class="comment"># TotalLatency is the sum of all latencies since server start</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">pattern:</span> <span class="string">org.apache.cassandra.metrics&lt;type=(\S*)(?:,</span> <span class="string">((?!scope)\S*)=(\S*))?(?:,</span> <span class="string">scope=(\S*))?,</span> <span class="string">name=(.+)?(?:Total)(Latency)&gt;&lt;&gt;Count</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">cassandra_$1_$5$6_seconds_sum</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">UNTYPED</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="string">"$1"</span><span class="string">:</span> <span class="string">"$4"</span></span><br><span class="line">    <span class="string">"$2"</span><span class="string">:</span> <span class="string">"$3"</span></span><br><span class="line">  <span class="comment"># Convert microseconds to seconds</span></span><br><span class="line">  <span class="attr">valueFactor:</span> <span class="number">0.000001</span></span><br><span class="line"></span><br><span class="line"><span class="bullet">-</span> <span class="attr">pattern:</span> <span class="string">org.apache.cassandra.metrics&lt;type=(\S*)(?:,</span> <span class="string">((?!scope)\S*)=(\S*))?(?:,</span> <span class="string">scope=(\S*))?,</span> <span class="string">name=((?:.+)?(?:Latency))&gt;&lt;&gt;Count</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">cassandra_$1_$5_seconds_count</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">UNTYPED</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="string">"$1"</span><span class="string">:</span> <span class="string">"$4"</span></span><br><span class="line">    <span class="string">"$2"</span><span class="string">:</span> <span class="string">"$3"</span></span><br><span class="line"></span><br><span class="line"><span class="bullet">-</span> <span class="attr">pattern:</span> <span class="string">org.apache.cassandra.metrics&lt;type=(\S*)(?:,</span> <span class="string">((?!scope)\S*)=(\S*))?(?:,</span> <span class="string">scope=(\S*))?,</span> <span class="string">name=(.+)&gt;&lt;&gt;Count</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">cassandra_$1_$5_count</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">UNTYPED</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="string">"$1"</span><span class="string">:</span> <span class="string">"$4"</span></span><br><span class="line">    <span class="string">"$2"</span><span class="string">:</span> <span class="string">"$3"</span></span><br><span class="line"></span><br><span class="line"><span class="bullet">-</span> <span class="attr">pattern:</span> <span class="string">org.apache.cassandra.metrics&lt;type=(\S*)(?:,</span> <span class="string">((?!scope)\S*)=(\S*))?(?:,</span> <span class="string">scope=(\S*))?,</span> <span class="string">name=((?:.+)?(?:Latency))&gt;&lt;&gt;(\d+)thPercentile</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">cassandra_$1_$5_seconds</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">GAUGE</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="string">"$1"</span><span class="string">:</span> <span class="string">"$4"</span></span><br><span class="line">    <span class="string">"$2"</span><span class="string">:</span> <span class="string">"$3"</span></span><br><span class="line">    <span class="attr">quantile:</span> <span class="string">"0.$6"</span></span><br><span class="line">  <span class="comment"># Convert microseconds to seconds</span></span><br><span class="line">  <span class="attr">valueFactor:</span> <span class="number">0.000001</span></span><br><span class="line"></span><br><span class="line"><span class="bullet">-</span> <span class="attr">pattern:</span> <span class="string">org.apache.cassandra.metrics&lt;type=(\S*)(?:,</span> <span class="string">((?!scope)\S*)=(\S*))?(?:,</span> <span class="string">scope=(\S*))?,</span> <span class="string">name=(.+)&gt;&lt;&gt;(\d+)thPercentile</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">cassandra_$1_$5</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">GAUGE</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="string">"$1"</span><span class="string">:</span> <span class="string">"$4"</span></span><br><span class="line">    <span class="string">"$2"</span><span class="string">:</span> <span class="string">"$3"</span></span><br><span class="line">    <span class="attr">quantile:</span> <span class="string">"0.$6"</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p><code>${CASSANDRA_HOME}/conf/cassandra-env.sh</code>增加启动参数</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">JVM_OPTS=<span class="string">"<span class="variable">$JVM_OPTS</span> -javaagent:<span class="variable">$&#123;CASSANDRA_HOME&#125;</span>/lib/jmx_prometheus_javaagent-0.12.0.jar=7070:<span class="variable">$&#123;CASSANDRA_HOME&#125;</span>/conf/jmx.yaml"</span></span><br></pre></td></tr></table></figure>
+<p>如下图所示:</p>
+<img src="/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/photo001.png" class="" title="图片">
+</li>
+<li><p>重启 Cassandra 数据库服务</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># su cassandra</span></span><br><span class="line">$ <span class="built_in">cd</span> <span class="variable">$&#123;CASSANDRA_HOME&#125;</span></span><br><span class="line">$ ./stop.sh</span><br><span class="line">$ ./start.sh</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>验证</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># curl 192.168.1.78:7070 &gt; collection.txt</span></span><br><span class="line">  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current</span><br><span class="line">                                 Dload  Upload   Total   Spent    Left  Speed</span><br><span class="line">100  826k  100  826k    0     0   632k      0  0:00:01  0:00:01 --:--:--  632k</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h2 id="安装-Prometheus"><a href="#安装-Prometheus" class="headerlink" title="安装 Prometheus"></a>安装 Prometheus</h2><div class="note info">
+            <p>项目路径: <code>/work/prometheus</code><br>服务地址: <code>192.168.1.15:9090</code></p>
+          </div>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pwd</span></span><br><span class="line">/work/prometheus</span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># ls</span></span><br><span class="line">bin conf <span class="built_in">log</span></span><br><span class="line"><span class="comment">#</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li><p>新建 conf/prometheus.yml 文件</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">prometheus.yml</span> </span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">global:</span></span><br><span class="line">  <span class="attr">scrape_interval:</span>     <span class="string">15s</span> <span class="comment"># By default, scrape targets every 15 seconds.</span></span><br><span class="line">  <span class="attr">evaluation_interval:</span> <span class="string">15s</span> <span class="comment"># By default, scrape targets every 15 seconds.</span></span><br><span class="line">  <span class="comment"># scrape_timeout is set to the global default (10s).</span></span><br><span class="line">  <span class="attr">external_labels:</span></span><br><span class="line">    <span class="attr">cluster:</span> <span class="string">'test-cluster'</span></span><br><span class="line">    <span class="attr">monitor:</span> <span class="string">"prometheus"</span></span><br><span class="line"></span><br><span class="line"><span class="attr">alerting:</span></span><br><span class="line"> <span class="attr">alertmanagers:</span></span><br><span class="line"> <span class="bullet">-</span> <span class="attr">static_configs:</span></span><br><span class="line">   <span class="bullet">-</span> <span class="attr">targets:</span></span><br><span class="line">     <span class="bullet">-</span> <span class="string">'192.168.1.234:9093'</span></span><br><span class="line"></span><br><span class="line"><span class="attr">scrape_configs:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">job_name:</span> <span class="string">'cassandra'</span></span><br><span class="line">    <span class="attr">scrape_interval:</span> <span class="string">15s</span></span><br><span class="line">    <span class="comment">#honor_labels: true # don't overwrite job &amp; instance labels</span></span><br><span class="line">    <span class="attr">static_configs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">targets:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">'192.168.1.66:7070'</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">'192.168.1.67:7070'</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">'192.168.1.78:7070'</span></span><br></pre></td></tr></table></figure></li>
+<li><p>新建启动脚本 <code>/work/prometheus/run_prometheus.sh</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"><span class="built_in">set</span> -e</span><br><span class="line"><span class="built_in">ulimit</span> -n 1000000</span><br><span class="line"></span><br><span class="line">DEPLOY_DIR=/work/prometheus</span><br><span class="line"><span class="built_in">cd</span> <span class="string">"<span class="variable">$&#123;DEPLOY_DIR&#125;</span>"</span> || <span class="built_in">exit</span> 1</span><br><span class="line"></span><br><span class="line"><span class="comment"># WARNING: This file was auto-generated. Do not edit!</span></span><br><span class="line"><span class="comment">#          All your edit might be overwritten!</span></span><br><span class="line"><span class="built_in">exec</span> &gt; &gt;(tee -i -a <span class="string">"/work/prometheus/log/prometheus.log"</span>)</span><br><span class="line"><span class="built_in">exec</span> 2&gt;&amp;1</span><br><span class="line"></span><br><span class="line"><span class="built_in">exec</span> bin/prometheus \</span><br><span class="line">    --config.file=<span class="string">"/work/prometheus/conf/prometheus.yml"</span> \</span><br><span class="line">    --web.listen-address=<span class="string">":9090"</span> \</span><br><span class="line">    --web.external-url=<span class="string">"http://192.168.1.15:9090/"</span> \</span><br><span class="line">    --web.enable-admin-api \</span><br><span class="line">    --log.level=<span class="string">"info"</span> \</span><br><span class="line">    --storage.tsdb.path=<span class="string">"/work/prometheus</span></span><br></pre></td></tr></table></figure></li>
+<li><p>启动 prometheus 服务</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sh run_prometheus.sh</span><br></pre></td></tr></table></figure>
+<h2 id="安装-Grafana"><a href="#安装-Grafana" class="headerlink" title="安装 Grafana"></a>安装 Grafana</h2><div class="note info">
+            <p>项目路径: <code>/work/gafana</code><br>服务地址: <code>192.168.1.15:3000</code></p>
+          </div>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pwd</span></span><br><span class="line">/work/gafana</span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># ls</span></span><br><span class="line">bin conf <span class="built_in">log</span> opt </span><br><span class="line"><span class="comment"># 注意: opt/grafana 是 Grafana 服务路径</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>编辑 <code>/work/gafana/conf/grafana.ini</code> 配置文件</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[paths]</span></span><br><span class="line"><span class="attr">data</span> = /work/gafana/data.grafana</span><br><span class="line"><span class="attr">logs</span> = /work/gafana/log</span><br><span class="line"><span class="attr">plugins</span> = /work/gafana/opt/grafana/plugins</span><br><span class="line"><span class="section">[server]</span></span><br><span class="line"><span class="attr">http_port</span> = <span class="number">3000</span></span><br><span class="line"><span class="attr">domain</span> = <span class="number">192.168</span>.<span class="number">1.15</span></span><br><span class="line"><span class="attr">check_for_updates</span> = <span class="literal">true</span></span><br><span class="line"><span class="section">[security]</span></span><br><span class="line"><span class="attr">admin_user</span> = admin</span><br><span class="line"><span class="attr">admin_password</span> = admin</span><br><span class="line"><span class="section">[log.file]</span></span><br><span class="line"><span class="attr">level</span> = info</span><br><span class="line"><span class="attr">format</span> = text</span><br><span class="line"><span class="section">[dashboards.json]</span></span><br><span class="line"><span class="attr">enabled</span> = <span class="literal">false</span></span><br><span class="line"><span class="attr">path</span> = /work/grafana/opt/grafana/dashboards</span><br></pre></td></tr></table></figure></li>
+<li><p>新建启动脚本 <code>/work/prometheus/run_grafana.sh</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"><span class="built_in">set</span> -e</span><br><span class="line"><span class="built_in">ulimit</span> -n 1000000</span><br><span class="line"></span><br><span class="line"><span class="comment"># WARNING: This file was auto-generated. Do not edit!</span></span><br><span class="line"><span class="comment">#          All your edit might be overwritten!</span></span><br><span class="line">DEPLOY_DIR=/work/grafana</span><br><span class="line"><span class="built_in">cd</span> <span class="string">"<span class="variable">$&#123;DEPLOY_DIR&#125;</span>"</span> || <span class="built_in">exit</span> 1</span><br><span class="line"></span><br><span class="line">LANG=en_US.UTF-8 \</span><br><span class="line"><span class="built_in">exec</span> opt/grafana/bin/grafana-server \</span><br><span class="line">        --homepath=<span class="string">"/work/grafana/opt/grafana"</span> \</span><br><span class="line">        --config=<span class="string">"/work/grafana/opt/grafana/conf/grafana.ini"</span></span><br></pre></td></tr></table></figure></li>
+<li><p>启动 Grafana</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># run_grafana.sh</span></span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<h2 id="导入-Dashboard"><a href="#导入-Dashboard" class="headerlink" title="导入 Dashboard"></a>导入 Dashboard</h2><a href="/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/Cassandra-DashBoard.zip" title="Cassandra-DashBoard 下载">Cassandra-DashBoard 下载</a>
+
+<img src="/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/photo002.png" class="" title="图片2">
+
+<img src="/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/photo003.png" class="" title="图片3">
+
+<h2 id="效果展示"><a href="#效果展示" class="headerlink" title="效果展示"></a>效果展示</h2><img src="/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/photo004.png" class="" title="图片4">
+
+
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Cassandra/" rel="tag"><i class="fa fa-tag"></i> Cassandra</a>
+              <a href="/tags/NoSQL/" rel="tag"><i class="fa fa-tag"></i> NoSQL</a>
+              <a href="/tags/Prometheus/" rel="tag"><i class="fa fa-tag"></i> Prometheus</a>
+              <a href="/tags/Grafana/" rel="tag"><i class="fa fa-tag"></i> Grafana</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/15/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-002/" rel="prev" title="Cassandra 集群部署">
+      <i class="fa fa-chevron-left"></i> Cassandra 集群部署
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/" rel="next" title="Cassandra 架构设计">
+      Cassandra 架构设计 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#基本概念"><span class="nav-number">1.</span> <span class="nav-text">基本概念</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Prometheus-简介"><span class="nav-number">1.1.</span> <span class="nav-text">Prometheus 简介</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#监控系统部署"><span class="nav-number">2.</span> <span class="nav-text">监控系统部署</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#准备安装包"><span class="nav-number">2.1.</span> <span class="nav-text">准备安装包</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#启用-JMX-exporter"><span class="nav-number">2.2.</span> <span class="nav-text">启用 JMX exporter</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安装-Prometheus"><span class="nav-number">2.3.</span> <span class="nav-text">安装 Prometheus</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安装-Grafana"><span class="nav-number">2.4.</span> <span class="nav-text">安装 Grafana</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#导入-Dashboard"><span class="nav-number">2.5.</span> <span class="nav-text">导入 Dashboard</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#效果展示"><span class="nav-number">2.6.</span> <span class="nav-text">效果展示</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Eter"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Eter</p>
+  <div class="site-description" itemprop="description">但行好事 莫问前程</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/" title="GitHub → https:&#x2F;&#x2F;github.com"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://golang.org/doc/effective_go.html" title="https:&#x2F;&#x2F;golang.org&#x2F;doc&#x2F;effective_go.html" rel="noopener" target="_blank">Effective Go</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.golang.org/profiling-go-programs" title="https:&#x2F;&#x2F;blog.golang.org&#x2F;profiling-go-programs" rel="noopener" target="_blank">Profiling Go Programs</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://doc.rust-lang.org/book/" title="https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;book&#x2F;" rel="noopener" target="_blank">The Rust Programming Language</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://csoulsi.github.io/" title="https:&#x2F;&#x2F;csoulsi.github.io" rel="noopener" target="_blank">csoulsi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://schnappi618.github.io/" title="https:&#x2F;&#x2F;schnappi618.github.io&#x2F;" rel="noopener" target="_blank">schnappi618</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+      
+        <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+        <div class="widget-wrap">
+          <h3 class="widget-title">Tag Cloud</h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+            <canvas width="250" height="250" id="resCanvas" style="width:100%">
+              <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/CPP/" rel="tag">CPP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cassandra/" rel="tag">Cassandra</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/" rel="tag">Go</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go-Micro/" rel="tag">Go Micro</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Grafana/" rel="tag">Grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NoSQL/" rel="tag">NoSQL</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Prometheus/" rel="tag">Prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLA/" rel="tag">SLA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLI/" rel="tag">SLI</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLO/" rel="tag">SLO</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Smart-Pointers/" rel="tag">Smart Pointers</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiDB/" rel="tag">TiDB</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiKV/" rel="tag">TiKV</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nightingale/" rel="tag">nightingale</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/pprof/" rel="tag">pprof</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%86%85%E5%AD%98/" rel="tag">内存</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%AF%E9%9D%A0%E6%80%A7/" rel="tag">可靠性</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E7%A8%8B/" rel="tag">编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E8%AF%91/" rel="tag">编译</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B0%83%E8%AF%95/" rel="tag">调试</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%93%BE%E6%8E%A5/" rel="tag">链接</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li></ul>
+            </canvas>
+          </div>
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heartbeat"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">HulkLab</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">62k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">56 分钟</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+<script src="/js/bookmark.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

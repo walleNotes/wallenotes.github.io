@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="XPII_t91-eBghgHpuxic4lhWHlvlxojKoB_lrpfuTwk">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"github.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":"ture"},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":true},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="当 TiDB 集群遇到 Server is Busy 时，常规处理思路。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TiKV is busy 处理思路">
+<meta property="og:url" content="https://github.com/walleNotes/wallenotes.github.io.git/2020/03/07/%E6%95%B0%E6%8D%AE%E5%BA%93/TiDB/tikv-is-busy/index.html">
+<meta property="og:site_name" content="walle&#39;s Notes">
+<meta property="og:description" content="当 TiDB 集群遇到 Server is Busy 时，常规处理思路。">
+<meta property="og:image" content="https://github.com/2020/03/07/%E6%95%B0%E6%8D%AE%E5%BA%93/TiDB/tikv-is-busy/1.png">
+<meta property="og:image" content="https://github.com/2020/03/07/%E6%95%B0%E6%8D%AE%E5%BA%93/TiDB/tikv-is-busy/2.png">
+<meta property="article:published_time" content="2020-03-07T10:23:06.000Z">
+<meta property="article:modified_time" content="2021-10-11T04:25:00.982Z">
+<meta property="article:author" content="Eter">
+<meta property="article:tag" content="数据库">
+<meta property="article:tag" content="TiDB">
+<meta property="article:tag" content="TiKV">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://github.com/2020/03/07/%E6%95%B0%E6%8D%AE%E5%BA%93/TiDB/tikv-is-busy/1.png">
+
+<link rel="canonical" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/03/07/%E6%95%B0%E6%8D%AE%E5%BA%93/TiDB/tikv-is-busy/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>TiKV is busy 处理思路 | walle's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">walle's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Quick notes</p>
+  </div>
+
+  <div class="site-nav-right"></div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">27</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">19</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">20</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/03/07/%E6%95%B0%E6%8D%AE%E5%BA%93/TiDB/tikv-is-busy/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Eter">
+      <meta itemprop="description" content="但行好事 莫问前程">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="walle's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          TiKV is busy 处理思路
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-03-07 18:23:06" itemprop="dateCreated datePublished" datetime="2020-03-07T18:23:06+08:00">2020-03-07</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index">
+                    <span itemprop="name">数据库</span>
+                  </a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/TiDB/" itemprop="url" rel="index">
+                    <span itemprop="name">TiDB</span>
+                  </a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>4.9k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>4 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote class="blockquote-center"><p>当 TiDB 集群遇到 Server is Busy 时，常规处理思路。  </p>
+</blockquote>
+
+<a id="more"></a>
+
+<p>日常 TiDB 运维中，当你在 TiKV 监控 Trouble - Shooting - Server Is Busy 看到以下这样的监控时，</p>
+<img src="/2020/03/07/%E6%95%B0%E6%8D%AE%E5%BA%93/TiDB/tikv-is-busy/1.png" class="" title="[1] 图片">
+
+<p>可能此时的 TiDB 集群在该时间段内响应延时会大幅度增加，甚至会出现大量请求超时并且伴随大量告警出现。</p>
+<h1 id="Server-is-Busy-的影响"><a href="#Server-is-Busy-的影响" class="headerlink" title="Server is Busy 的影响"></a>Server is Busy 的影响</h1><p>Server is Busy 本质上就是 tikv-server 繁忙，暂时无法对该请求做出响应，所以此时从TiDB集群到业务都会受到影响。以下从两个角度观察这个问题。</p>
+<h2 id="1-运维角度"><a href="#1-运维角度" class="headerlink" title="1. 运维角度"></a>1. 运维角度</h2><ol>
+<li>集群性能迅速下降，现象可以从 TiDB 监控 - Query Summary - Duration 明显看到。</li>
+<li>TIKV 服务器负载增加，现象可以从 TiKV 监控 - Server / Thread CPU / Error 中看到。</li>
+<li>TiDB 日志中大量的 server is busy 日志，可以查看 tidb.log 过滤 Server is Busy 关键字。</li>
+<li>慢查询大量增加，常规基于主键查询的请求，也会很慢。</li>
+</ol>
+<h2 id="2-业务角度"><a href="#2-业务角度" class="headerlink" title="2. 业务角度"></a>2. 业务角度</h2><ol>
+<li>业务访问数据库响应耗时大幅度增加， 例如： 5ms -&gt; 5s。</li>
+<li>业务告警，数据库访问超时，例如： TimeoutException。</li>
+<li>部分请求访问DB不响应。</li>
+</ol>
+<p>每次出现 Server is Busy 对于运维以及业务都是比较紧张，那么接下来分析一下 Server is busy 的原因。</p>
+<h1 id="Server-is-Busy-的原因"><a href="#Server-is-Busy-的原因" class="headerlink" title="Server is Busy 的原因"></a>Server is Busy 的原因</h1><h2 id="写保护-write-stall"><a href="#写保护-write-stall" class="headerlink" title="写保护 ( write stall )"></a>写保护 ( write stall )</h2><p>TiKV 底层有 2 个 RocksDB 作为存储,  RocksDB 使用的 LSM Tree，LSM Tree 牺牲了一部分读的性能和增加了合并的开销，换取了高效的写性能，但如果写入过快，超过了 RocksDB 处理的极限，RocksDB 就会考虑对写入进行降速处理。</p>
+<ul>
+<li>密集写入，导致 level0 sst 太多导致 stall 。</li>
+<li>pending compaction bytes 太多导致 stall ， 服务器磁盘IO能力在写入高峰跟不上写入。</li>
+<li>memtable 太多导致 stall 。</li>
+</ul>
+<img src="/2020/03/07/%E6%95%B0%E6%8D%AE%E5%BA%93/TiDB/tikv-is-busy/2.png" class="" title="[1] 图片">
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">处理建议：</span><br><span class="line">1. 是否存在热点写入&#x2F;写入倾斜，是否可以打散写入</span><br><span class="line">2. 调整 rocksdb 参数 max-sub-compactions 至 2~3，将 level0 到 level1 的 compaction 拆分为多个子任务，加快并行 compaction 的速度</span><br><span class="line">3. 适当调大 level0-slowdown-writes-trigger &#x3D; 40，level0-stop-writes-trigger &#x3D; 56，这不一定能根本解决问题，只是加大了限制进行缓解</span><br></pre></td></tr></table></figure>
+
+<h2 id="scheduler-too-busy"><a href="#scheduler-too-busy" class="headerlink" title="scheduler too busy"></a>scheduler too busy</h2><ul>
+<li><p>写入冲突严重，两阶段提交时都需要申请 latch，如果冲突严重，latch 申请就会排队，导致 latch wait duration 比较高, 现象 TIKV 监控 -  scheduler prewrite|commit 的 latch wait duration</p>
+</li>
+<li><p>写入慢导致写入堆积，该 TiKV 正在写入的数据超过了 [storage] scheduler-pending-write-threshold = “100MB” 设置的阈值。</p>
+</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">处理建议：</span><br><span class="line">1. 是否可以将针对单行数据的并行写入，改为串行写入</span><br><span class="line">2. 可以考虑分布式锁</span><br><span class="line">3. 开启悲观事务</span><br></pre></td></tr></table></figure>
+
+<h2 id="线程池排队"><a href="#线程池排队" class="headerlink" title="线程池排队"></a>线程池排队</h2><p>常规的线程池设计中，请求处理的越快，线程池压力越小，整体处理能力就越强。当单个请求变慢时，整个线程池也不受影响，当变慢的请求逐渐堆积时，整个线程池也会逐渐变得处理能力下降甚至不响应。超出线程池上限后会返回 Server Is Busy。</p>
+<p>(1) 关键配置 tikv.yml</p>
+<p>在 3.0 的版本中，不同的查询会在 2 套线程池中执行，分别是 <strong>readpool.storage 和 readpool.coprocessor</strong>，每个线程池分为三个优先级，分别用于处理高优先级，普通优先级和低优先级请求。 TiDB 点查选择是高优先级，范围扫描是普通优先级，而诸如表分析之类的后台作业是低优先级。</p>
+<p>既然是使用线程池处理请求，接下来看下线程池的限制，线程数，以及单个线程允许积压的最大任务数量。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 高优先级线程池, 默认值 cpu core 数 * 80%, 最小值 1</span><br><span class="line">high-concurrency</span><br><span class="line">&#x2F;&#x2F; 普通优先级线程池, 默认值 cpu core 数 * 80%, 最小值 1</span><br><span class="line">normal-concurrency</span><br><span class="line">&#x2F;&#x2F; 低优先级线程池, 默认值 cpu core 数 * 80%, 最小值 1</span><br><span class="line">low-concurrency</span><br><span class="line">&#x2F;&#x2F; 指定低优先级线程池中每个线程的最大运行操作数，处理高优先级读取请求</span><br><span class="line">&#x2F;&#x2F; 默认值 2000, 最小值 2000</span><br><span class="line">max-tasks-per-worker-high</span><br><span class="line">&#x2F;&#x2F; 指定低优先级线程池中每个线程的最大运行操作数，处理低普通先级读取请求</span><br><span class="line">max-tasks-per-worker-normal</span><br><span class="line">&#x2F;&#x2F; 指定低优先级线程池中每个线程的最大运行操作数，处理低优先级读取请求</span><br><span class="line">max-tasks-per-worker-low</span><br></pre></td></tr></table></figure>
+
+<p>其中以高优先线程池为例，因为调整线程资源的是线程池级别而不是单线程级别，所以高优先级线程池默认最大运行操作数的限制为  </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">max-tasks-per-worker-high * high-concurrency &#x3D; 2000 * 4 &#x3D; 8000</span><br></pre></td></tr></table></figure>
+
+<p>(2) 推荐配置（针对 <strong><em>TiDB</em></strong> 集群）</p>
+<ul>
+<li>单机单实例( TiKV )，不应超过服务器 CPU 核数<ul>
+<li>例如：一台 48 Core 服务器运行 1 个 tikv-server，则每个实例的高并发值应小于 48</li>
+<li>最大性能推荐值：<strong>48</strong></li>
+<li>均衡性能推荐值：<strong>36</strong></li>
+</ul>
+</li>
+<li>单机多实例(TIKV)，<ul>
+<li>例如：一台 48 Core 服务器运行 3 个 tikv-server，则每个实例的高并发值应小于 16</li>
+<li>最大性能推荐值：<strong>16</strong></li>
+<li>均衡性能推荐值：<strong>12</strong></li>
+</ul>
+</li>
+</ul>
+<p>(3) 4.0 的线程池整合</p>
+<p>从 4.0 版本开始，将 readpool.storage 和 readpool.coprocessor  整合为一个 unified read pool 线程池，并且不再需要配置3 个优先级，解决资源分配不均的问题，并且大大提高了使用体验，相关配置：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[readpool]</span><br><span class="line"># unify-read-pool &#x3D; true</span><br><span class="line"></span><br><span class="line">[readpool.unified]</span><br><span class="line"># min-thread-count &#x3D; 1</span><br><span class="line"># max-thread-count &#x3D; 8</span><br><span class="line"></span><br><span class="line">## Size of the stack for each thread in the thread pool.</span><br><span class="line"># stack-size &#x3D; &quot;10MB&quot;</span><br><span class="line"></span><br><span class="line">## Max running tasks of each worker, reject if exceeded.</span><br><span class="line"># max-tasks-per-worker &#x3D; 2000</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">处理建议：</span><br><span class="line">1. 考虑是否出现大量扫描现象。</span><br><span class="line">2. 考虑是否是可用线程较少，可以通过增加 TIKV 节点提高集群整体处理能力</span><br></pre></td></tr></table></figure>
+
+<h2 id="raftstore-is-busy"><a href="#raftstore-is-busy" class="headerlink" title="raftstore is busy"></a>raftstore is busy</h2><ul>
+<li>append log 遇到了 stall，监控在 2 个地方可以看到<ul>
+<li>[tikv-detail]-&gt;[RocksDB - raft]-[Write stall duration]</li>
+<li>[tikv-detail]-&gt;[RocksDB - kv]-[Write stall duration]</li>
+<li>以上也可以直接看 [tikv-detail]-&gt;[Errors]-&gt;[Server is busy]</li>
+</ul>
+</li>
+<li>append log duration 比较高，导致处理消息不及时，监控在 [tikv-detail]-&gt;[Raft IO]-&gt;[append log duration]<ul>
+<li>考虑 append log 慢， 查看磁盘 IO 情况， 通常是写盘慢了，查看 [tikv-detail]-&gt;[Raft IO]-&gt;[Write duration]</li>
+<li>考虑 [raftstore] store-pool-size 配置是否过小， 该值建议在[1,5] 之间，不建议太大。可以通过 [tikv-detail]-&gt;[Thread CPU]-&gt;[Raft store CPU] 看确定是否过小，如果[Raft store CPU] 超过了 [store-pool-size 数量] * 70% 说明需要加大 store-pool-size。</li>
+<li>通常单个 tikv-server 实例的 region 数量超过 5 万之后，region 之间的心跳也会占用很多 raftstore cpu ，建议开启 hibernate region 来解决这个问题</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[raftstore]</span><br><span class="line">hibernate-regions &#x3D; true</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">处理建议：</span><br><span class="line">1. 考虑是否磁盘写入存在瓶颈</span><br><span class="line">2. 是否 store-pool-size 配置是否过小，适当调整参数</span><br></pre></td></tr></table></figure>
+
+<p>以上为 TiKV Server is busy 的主要的几个原因，在使用 TiDB 过程中需要尽力避免过程中出现 Server is Busy 的情况，可以通过优化 SQL 优化、参数调整、增加节点等手段避免该问题。</p>
+<h1 id="触发-Server-is-Busy-的常见场景"><a href="#触发-Server-is-Busy-的常见场景" class="headerlink" title="触发 Server is Busy 的常见场景"></a>触发 Server is Busy 的常见场景</h1><h2 id="SQL-开销较大"><a href="#SQL-开销较大" class="headerlink" title="SQL 开销较大"></a>SQL 开销较大</h2><ol>
+<li>常规慢查询,  有很多的场景，例如：全表扫描。</li>
+<li>大表索引未被命中正确的索引的情况。</li>
+<li>高并发导入数据，导致 tikv 写入繁忙。</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">处理建议：</span><br><span class="line">1. 针对开销较大的 SQL，如果是读 SQL可以做相应的 SQL 优化，来避免大量扫表。</span><br><span class="line">2. TiDB4.0 的 unified thread pool 针对这种情况有优化，高并发导入的问题可以降低导入并发。</span><br></pre></td></tr></table></figure>
+
+<h2 id="事务冲突"><a href="#事务冲突" class="headerlink" title="事务冲突"></a>事务冲突</h2><p>乐观锁事务模式下事务冲突严重，会导致大量的线程进行重试，从而导致 tikv is busy，例如计数器功能。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">处理建议:</span><br><span class="line">针对*乐观锁事务模式下的事务**冲突的场景，可以通过添加分布式锁，或者使用悲观事务模型来解决。</span><br><span class="line">1. TiDB v3.0.8默认使用悲观锁事务模式，如果集群是从 v3.0.8 版本以下升级上来的集群，默认还是乐观锁事务模式。</span><br></pre></td></tr></table></figure>
+
+<h2 id="集群-region-数量太大"><a href="#集群-region-数量太大" class="headerlink" title="集群 region 数量太大"></a>集群 region 数量太大</h2><p>在 TiDB 2.1 等低版本中，因为 TiKV 的 raft 是单线程，当管理的 region 数达到一定量级时，性能会下降，多大一定程度，单核只够管理 region 。并没有空闲的能力处理业务。业务就会出现 server is busy。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">处理建议：</span><br><span class="line">1. 升级到 3.0 版本以上，设置 store-pool-size 开启多线程 raftstore</span><br><span class="line">2. 设置 hibernate-regions ，开启静默 region</span><br></pre></td></tr></table></figure>
+
+<h2 id="热点问题"><a href="#热点问题" class="headerlink" title="热点问题"></a>热点问题</h2><ol>
+<li>如果业务写入集中在某一个 region 范围内，比如自增 id 的写入，这个 region 所在的 tikv-server 的压力会增大，导致线程处理变慢，线程会出现排队，最终导致 server is busy。</li>
+<li>客户端在短期内发起密集的写入，其中主要是热点写入，可能出现写入倾斜，并导致单个 tikv 节点出现 server is busy。</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">处理建议：</span><br><span class="line">1. 对于热点更新的场景，可以通过 region 拆分、shard_row_id_bits、pre_split_regions 等方式优化。</span><br></pre></td></tr></table></figure>
+
+<h2 id="常规查询变慢的原因"><a href="#常规查询变慢的原因" class="headerlink" title="常规查询变慢的原因"></a>常规查询变慢的原因</h2><p>当 Server is Busy 出现后，查询为什么突然变慢，平时 99% 6ms 返回, 为啥突然 3s 都没有返回?</p>
+<p>如果确认是在 Server is Busy 的情况下，Query Duration 明显增加，此时可以通过观察 tidb.log 日志，可以看到，正常查询主要耗时在 wait 阶段，并不是消耗在 exec 时间。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">例如：</span><br><span class="line">如果 coprocessor 的每个线程排队超过 2000 个任务，</span><br><span class="line">本次查询是第 2001 个任务，那么需要队列中任务任一个任务执行完成，</span><br><span class="line">后第 2001 才会开始执行，所以看似简单的查询会变慢，主要时间消耗在队列等待上面。</span><br></pre></td></tr></table></figure>
+
+<h1 id="总结处理思路"><a href="#总结处理思路" class="headerlink" title="总结处理思路"></a>总结处理思路</h1><p>通过前面的原因和场景，总结一下可能的处理思路及手段如下：</p>
+<ol>
+<li>针对开销较大的 SQL，可以做出相应的 SQL 优化，来避免大量扫表。（4.0 的 unified thread pool 针对这种情况有优化）</li>
+<li>针对事务冲突的场景，可以通过添加分布式锁，或者使用悲观事务模型来解决。</li>
+<li>对于热点更新的场景，可以通过 region 拆分、shard_row_id_bits、pre_split_regions等方式优化。</li>
+<li>如果是可用的线程较少，导致了线程池排队，可以增加 tikv 节点，来提高集群的处理能力。</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag"><i class="fa fa-tag"></i> 数据库</a>
+              <a href="/tags/TiDB/" rel="tag"><i class="fa fa-tag"></i> TiDB</a>
+              <a href="/tags/TiKV/" rel="tag"><i class="fa fa-tag"></i> TiKV</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/02/25/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/go-micro-001/" rel="prev" title="Go Micro微服务架构组成">
+      <i class="fa fa-chevron-left"></i> Go Micro微服务架构组成
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/03/14/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/go-micro-002/" rel="next" title="Go Micro微服务架构特性">
+      Go Micro微服务架构特性 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Server-is-Busy-的影响"><span class="nav-number">1.</span> <span class="nav-text">Server is Busy 的影响</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-运维角度"><span class="nav-number">1.1.</span> <span class="nav-text">1. 运维角度</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-业务角度"><span class="nav-number">1.2.</span> <span class="nav-text">2. 业务角度</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Server-is-Busy-的原因"><span class="nav-number">2.</span> <span class="nav-text">Server is Busy 的原因</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#写保护-write-stall"><span class="nav-number">2.1.</span> <span class="nav-text">写保护 ( write stall )</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#scheduler-too-busy"><span class="nav-number">2.2.</span> <span class="nav-text">scheduler too busy</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#线程池排队"><span class="nav-number">2.3.</span> <span class="nav-text">线程池排队</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#raftstore-is-busy"><span class="nav-number">2.4.</span> <span class="nav-text">raftstore is busy</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#触发-Server-is-Busy-的常见场景"><span class="nav-number">3.</span> <span class="nav-text">触发 Server is Busy 的常见场景</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#SQL-开销较大"><span class="nav-number">3.1.</span> <span class="nav-text">SQL 开销较大</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#事务冲突"><span class="nav-number">3.2.</span> <span class="nav-text">事务冲突</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#集群-region-数量太大"><span class="nav-number">3.3.</span> <span class="nav-text">集群 region 数量太大</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#热点问题"><span class="nav-number">3.4.</span> <span class="nav-text">热点问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#常规查询变慢的原因"><span class="nav-number">3.5.</span> <span class="nav-text">常规查询变慢的原因</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结处理思路"><span class="nav-number">4.</span> <span class="nav-text">总结处理思路</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Eter"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Eter</p>
+  <div class="site-description" itemprop="description">但行好事 莫问前程</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/" title="GitHub → https:&#x2F;&#x2F;github.com"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://golang.org/doc/effective_go.html" title="https:&#x2F;&#x2F;golang.org&#x2F;doc&#x2F;effective_go.html" rel="noopener" target="_blank">Effective Go</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.golang.org/profiling-go-programs" title="https:&#x2F;&#x2F;blog.golang.org&#x2F;profiling-go-programs" rel="noopener" target="_blank">Profiling Go Programs</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://doc.rust-lang.org/book/" title="https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;book&#x2F;" rel="noopener" target="_blank">The Rust Programming Language</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://csoulsi.github.io/" title="https:&#x2F;&#x2F;csoulsi.github.io" rel="noopener" target="_blank">csoulsi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://schnappi618.github.io/" title="https:&#x2F;&#x2F;schnappi618.github.io&#x2F;" rel="noopener" target="_blank">schnappi618</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+      
+        <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+        <div class="widget-wrap">
+          <h3 class="widget-title">Tag Cloud</h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+            <canvas width="250" height="250" id="resCanvas" style="width:100%">
+              <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/CPP/" rel="tag">CPP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cassandra/" rel="tag">Cassandra</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/" rel="tag">Go</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go-Micro/" rel="tag">Go Micro</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Grafana/" rel="tag">Grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NoSQL/" rel="tag">NoSQL</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Prometheus/" rel="tag">Prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLA/" rel="tag">SLA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLI/" rel="tag">SLI</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLO/" rel="tag">SLO</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Smart-Pointers/" rel="tag">Smart Pointers</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiDB/" rel="tag">TiDB</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiKV/" rel="tag">TiKV</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nightingale/" rel="tag">nightingale</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/pprof/" rel="tag">pprof</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%86%85%E5%AD%98/" rel="tag">内存</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%AF%E9%9D%A0%E6%80%A7/" rel="tag">可靠性</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E7%A8%8B/" rel="tag">编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E8%AF%91/" rel="tag">编译</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B0%83%E8%AF%95/" rel="tag">调试</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%93%BE%E6%8E%A5/" rel="tag">链接</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li></ul>
+            </canvas>
+          </div>
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heartbeat"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">HulkLab</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">62k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">56 分钟</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+<script src="/js/bookmark.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="XPII_t91-eBghgHpuxic4lhWHlvlxojKoB_lrpfuTwk">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"github.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":"ture"},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":true},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Cassandra 架构设计">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Cassandra 架构设计">
+<meta property="og:url" content="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/index.html">
+<meta property="og:site_name" content="walle&#39;s Notes">
+<meta property="og:description" content="Cassandra 架构设计">
+<meta property="og:image" content="https://github.com/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/arch.png">
+<meta property="og:image" content="https://github.com/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/rings.png">
+<meta property="og:image" content="https://github.com/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/ringsvnode.png">
+<meta property="og:image" content="https://github.com/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/nodes.png">
+<meta property="og:image" content="https://github.com/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/nodeinfo.png">
+<meta property="og:image" content="https://github.com/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/flow.png">
+<meta property="article:published_time" content="2020-04-25T02:31:09.000Z">
+<meta property="article:modified_time" content="2021-10-11T04:25:00.977Z">
+<meta property="article:author" content="Eter">
+<meta property="article:tag" content="Cassandra">
+<meta property="article:tag" content="NoSQL">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://github.com/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/arch.png">
+
+<link rel="canonical" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>Cassandra 架构设计 | walle's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">walle's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Quick notes</p>
+  </div>
+
+  <div class="site-nav-right"></div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">27</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">19</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">20</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Eter">
+      <meta itemprop="description" content="但行好事 莫问前程">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="walle's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Cassandra 架构设计
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-25 10:31:09" itemprop="dateCreated datePublished" datetime="2020-04-25T10:31:09+08:00">2020-04-25</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index">
+                    <span itemprop="name">数据库</span>
+                  </a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/" itemprop="url" rel="index">
+                    <span itemprop="name">Cassandra</span>
+                  </a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.1k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>5 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote class="blockquote-center"><p>Cassandra 架构设计 </p>
+</blockquote>
+
+<a id="more"></a>
+<h1 id="概览"><a href="#概览" class="headerlink" title="概览"></a>概览</h1><p><code>Apache Cassandra</code> 是一个大规模可扩展的分布式开源 <code>NoSQL</code> 数据库，完美适用于跨数据中心／云端的结构化数据、半结构化数据和非结构化数据，同时 <code>Cassandra</code> 具有灵活伸缩、高可用、错误容忍、可调的一致性等特性。</p>
+<h1 id="适合的场景"><a href="#适合的场景" class="headerlink" title="适合的场景"></a>适合的场景</h1><ul>
+<li>大数据量（集群模式）</li>
+<li>大量的写、统计、分析</li>
+<li>多数据中心</li>
+<li>数据快速增长的应用</li>
+</ul>
+<h1 id="架构"><a href="#架构" class="headerlink" title="架构"></a>架构</h1><h2 id="关键词"><a href="#关键词" class="headerlink" title="关键词"></a>关键词</h2><table>
+<thead>
+<tr>
+<th align="center">KeyWord</th>
+<th align="center">Explain</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">Gossip</td>
+<td align="center">点对点通信协议，用以Cassandra集群中节点间交换位置和状态信息。</td>
+</tr>
+<tr>
+<td align="center">Partitioner</td>
+<td align="center">决定如何在集群中的节点间分发数据，即在哪个节点放置数据的第一个replica。</td>
+</tr>
+<tr>
+<td align="center">Replica placement strategy</td>
+<td align="center">决定在哪些节点放置每行数据的其他replica。Cassandra在集群中的多个节点存储数据的多份拷贝(replicas)来确保可靠和容错。</td>
+</tr>
+<tr>
+<td align="center">Snitch</td>
+<td align="center">定义了复制策略用来放置replicas和路由请求所使用的拓扑信息</td>
+</tr>
+<tr>
+<td align="center">Virtual nodes</td>
+<td align="center">虚拟节点, 指定数据与物理节点的所属关系</td>
+</tr>
+<tr>
+<td align="center">Token Ring</td>
+<td align="center">令牌环</td>
+</tr>
+</tbody></table>
+<h2 id="Data-Centers-and-Racks"><a href="#Data-Centers-and-Racks" class="headerlink" title="Data Centers and Racks"></a>Data Centers and Racks</h2><img src="/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/arch.png" class="" title="Arch">
+
+
+<h3 id="Rack"><a href="#Rack" class="headerlink" title="Rack"></a>Rack</h3><p>一个逻辑集合，有多个彼此临近 <code>node</code> 的组成。比如一个机架上的所有物理机器。</p>
+<h3 id="Data-Center"><a href="#Data-Center" class="headerlink" title="Data Center"></a>Data Center</h3><p>有多个Rack组成的逻辑集合。建议将节点部署到多个数据中心。</p>
+<h2 id="Gossip-and-Failure-Detection"><a href="#Gossip-and-Failure-Detection" class="headerlink" title="Gossip and Failure Detection"></a>Gossip and Failure Detection</h2><p><code>Gossip</code> 是一种 <code>p2p</code> 协议, 用于 <code>failure detection</code>, 跟踪其他节点的状态，每秒运行一次。<br>运用 <code>Phi Accrual Failure Detection</code> 实现 <code>failure detection</code><br>计算出一个结果 <code>level of suspicion</code>, 表示节点失败的可能性。<br>具有灵活性, 同时也避免了传统 <code>heartbeat</code> 的不可靠。可以应对只是短暂的网络拥塞。</p>
+<div class="note info">
+            <p><code>Gossip</code> 介绍:<br><code>Gossip</code> 过程是由种子节点发起，当一个种子节点有状态需要更新到网络中的其他节点时，它会随机的选择周围几个节点散播消息，收到消息的节点也会重复该过程，直至最终网络中所有的节点都收到了消息。这个过程可能需要一定的时间，由于不能保证某个时刻所有节点都收到消息，但是理论上最终所有节点都会收到消息，因此它是一个最终一致性协议。</p><h3 id="Gossip-的优点"><a href="#Gossip-的优点" class="headerlink" title="Gossip 的优点"></a>Gossip 的优点</h3><ul><li><p>扩展性<br>网络可以允许节点的任意增加和减少，新增加的节点的状态最终会与其他节点一致。</p></li><li><p>容错<br>网络中任何节点的宕机和重启都不会影响 Gossip 消息的传播，Gossip 协议具有天然的分布式系统容错特性。</p></li><li><p>去中心化<br>Gossip 协议不要求任何中心节点，所有节点都可以是对等的，任何一个节点无需知道整个网络状况，只要网络是连通的，任意一个节点就可以把消息散播到全网。</p></li><li><p>一致性收敛<br>Gossip 协议中的消息会以一传十、十传百一样的指数级速度在网络中快速传播，因此系统状态的不一致可以在很快的时间内收敛到一致。消息传播速度达到了 logN。</p></li><li><p>简单<br>Gossip 协议的过程极其简单，实现起来几乎没有太多复杂性。</p></li></ul><h3 id="Gossip-的缺陷"><a href="#Gossip-的缺陷" class="headerlink" title="Gossip 的缺陷"></a>Gossip 的缺陷</h3><p>分布式网络中，没有一种完美的解决方案，Gossip 协议跟其他协议一样，也有一些不可避免的缺陷，主要是两个：</p><ul><li><p>消息的延迟<br>由于 Gossip 协议中，节点只会随机向少数几个节点发送消息，消息最终是通过多个轮次的散播而到达全网的，因此使用 Gossip 协议会造成不可避免的消息延迟。不适合用在对实时性要求较高的场景下。</p></li><li><p>消息冗余<br>Gossip 协议规定，节点会定期随机选择周围节点发送消息，而收到消息的节点也会重复该步骤，因此就不可避免的存在消息重复发送给同一节点的情况，造成了消息的冗余，同时也增加了收到消息的节点的处理压力。而且，由于是定期发送，因此，即使收到了消息的节点还会反复收到重复消息，加重了消息的冗余。</p></li></ul>
+          </div>
+
+<h2 id="Snitches"><a href="#Snitches" class="headerlink" title="Snitches"></a>Snitches</h2><p><code>snitch</code> 定义了集群中每个节点相对其他节点的邻近度, 以此来确定从哪个节点读取和写入。<br>一般采用手动定义的模式,在 <code>cassandra.yaml</code> 配置为 <code>endpoint_snitch</code>: <code>GossipingPropertyFileSnitch</code><br>同时在 <code>cassandra-rackdc.properties</code> 配置当前节点的 <code>dc</code> 和 <code>rack</code>，比如:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">dc=dc1</span><br><span class="line">rack=rack2</span><br></pre></td></tr></table></figure>
+
+<h2 id="Rings-and-Tokens"><a href="#Rings-and-Tokens" class="headerlink" title="Rings and Tokens"></a>Rings and Tokens</h2><img src="/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/rings.png" class="" title="Rings">
+<p>Cassandra 表示由集群管理的数据作为一个环。环中的每个节点被分配一个或多个由<code>token</code> 描述的数据范围，确定在环中的位置。</p>
+<div class="note info">
+            <h3 id="token"><a href="#token" class="headerlink" title="token"></a>token</h3><p>token 是用于标识每个分区的64位整数ID，范围是: 0 - 2^127<br>token 是一个0~2的127次方之间的一个整数，这也意味着理论上 <code>Cassandra</code> 可以支持 <code>2^127</code> 个节点）。之所以是 <code>2^127</code>，是因为 <code>MD5 HASH</code> 固定输出 128 位的数，去掉一位符号位，剩下127位。</p>
+          </div>
+
+<p>通过 <code>hash算法</code> 计算 <code>partition key</code> 的 <code>hash值</code>，得到一个127位的数，然后将这个数与各节点的 <code>token</code> 比较来决定存储到哪个节点上。它根据以下规则进行节点选择：</p>
+<ul>
+<li>1.数据将存储到拥有最近的比key的hash值大的token的节点上；</li>
+<li>2.若key的hash值比最大的token大，那将被存储到具有最小token的节点上。</li>
+</ul>
+<p>在配置文件 <code>cassandra.yaml</code> 里，有一个配置是 <code>initial_token</code>，这里就是配置该节点的 <code>token</code> 值。该值留空时，<code>Cassandra</code> 会自动给该节点分配一个<code>token</code> ，依据以下规则：</p>
+<ul>
+<li><p>1.若该节点已经被配置好准备加入集群，则 <code>Cassandra</code> 会根据集群现有的 <code>token</code> 来分配一个最平衡的 <code>token</code> 给该节点。很明显，分配一个 <code>token</code> 给新加入的节点，会让现有的某个节点减少一半的负载。若集群里有多个 <code>token</code> 都是一样平衡， 则它会选择一个可以分担目前存储了最多数据的节点的 <code>token</code> 。</p>
+</li>
+<li><p>2.若该节点还未准备好加入集群，则 <code>Cassandra</code> 会认为这个节点是引导节点，并分配一个固定值给它。所以若你分别单独配置两台节点，然后再尝试将它们集群，则会报告 <code>token</code> 重复。最好的方法应该是先单独配置第一台节点作为引导节点，然后后面的节点配置时应该也同时配置加入集群（后文说明），这样它们会自动获得一个平衡的 <code>token</code>。</p>
+</li>
+</ul>
+<p>配置文件里的 <code>token</code> 仅在系统第一次启动时被使用，然后该值被写入 <code>system</code> 文件，以后系统启动将不再从配置文件读取 <code>token</code> 。因此若你发现两台节点的 <code>token</code> 重复，你无法通过改变配置文件里的 <code>token</code> 来改变节点的 <code>token</code> 。正确的修改方法是删除自定义 <code>token</code> 文件夹里的所有文件，重新启动服务。</p>
+<p> <code>token</code> 会直接影响集群里节点所承受的负载，我们应该尽量保证每个节点所负责的 <code>token</code> 范围是平衡的。若你发现节点的负载不平衡，你可以手动改变它们的 <code>token</code> 来让它们平衡。先计算出每台节点的 <code>token</code> （平均分配），然后使用 <code>nodetool</code> 工具改变它。下面给出一个java里计算token的方法，参数是节点数。</p>
+<h2 id="Virtual-Nodes"><a href="#Virtual-Nodes" class="headerlink" title="Virtual Nodes"></a>Virtual Nodes</h2><p>早期 <code>Cassandra</code> 版本给每个节点只分配了一个 <code>token</code> 范围，添加删除节点,需要手动重新配置 <code>token</code> 范围。一方面繁琐的操作，另一方面会导致大量的数据迁移。<br>在1.2版本介绍了 <code>virtual node</code> 的概念简称 <code>vnode</code> ,原先的 <code>token</code> 范围被缩减为多个更小的 <code>token</code> 范围。每个节点包含多个 <code>token</code> 范围。默认每个节点产生256个 <code>token</code> 范围（通过 <code>num_tokens</code> 调节），也就是256个 <code>vnode</code> 。在2.0以后默认开启。<br>在性能差的节点上, 可以适当减少 <code>num_tokens</code> 的值。<br><code>org.apache.cassandra.dht.tokenallocator.ReplicationAwareTokenAllocator</code>用于计算节点的token范围。</p>
+<img src="/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/ringsvnode.png" class="" title="RingsAndVnode">
+
+<div class="note info">
+            <p>图解: 没有使用虚拟节点，Ring 环的 <code>tokens数量 = 集群的机器数量</code>。 比如上面一共有6个节点，所以 <code>token 数量 = 6</code>。<br>因为 <code>副本因子 = 3</code>，一条记录要在集群中的三个节点存在。简单地方式是计算 <code>rowkey的hash值</code>，落在环中的哪个 <code>token</code>上，第一份数据就在那个节点上, 剩余两个副本落在这个节点在 <code>token</code> 环上的后两个节点。<br>图中的 A,B,C,D,E,F 是 <code>key</code> 的范围，真实的值是 <code>hash环空间</code>，比如 0~2^32 区间分成10份，每一段是 2^32的 1/10 。<br><code>Note 1</code> 包含 A，F，E 表示 key 范围在 A，F，E 的数据会存储到 <code>Note 1</code> 上，以此类推。</p><h3 id="Rings-Without-Virtual-Nodes"><a href="#Rings-Without-Virtual-Nodes" class="headerlink" title="Rings Without Virtual Nodes"></a>Rings Without Virtual Nodes</h3><p>手工为集群中每个节点计算和分配一个 <code>token</code>。每个 <code>token</code> 决定了节点在环中的位置以及节点应当承担的一段连续的数据 <code>hash</code> 值的范围，每个节点分配了一个单独的 <code>token</code> 代表环中的一个位置，每个节点存储将<code>row key</code> 映射为 <code>hash</code> 值之后落在该节点应当承担的唯一的一段连续的 <code>hash</code> 值范围内的数据。每个节点也包含来自其他节点的 <code>row</code> 的副本。</p><h3 id="Rings-With-Virtual-Nodes"><a href="#Rings-With-Virtual-Nodes" class="headerlink" title="Rings With Virtual Nodes"></a>Rings With Virtual Nodes</h3><p>允许每个节点拥有多个较小的不连续的 <code>hash</code> 值范围，集群中的节点使用了虚拟节点，虚拟节点随机选择且不连续。数据的存放位置也由 <code>row key</code> 映射而得的hash值确定，但是是落在更小的分区范围内。</p><h3 id="The-Benefit-of-Using-Rings-with-virtual-nodes"><a href="#The-Benefit-of-Using-Rings-with-virtual-nodes" class="headerlink" title="The Benefit of Using Rings with virtual nodes"></a>The Benefit of Using Rings with virtual nodes</h3><ul><li>无需为每个节点计算、分配token</li><li>添加移除节点后无需重新平衡集群负载</li><li>减少大量的大量的数据迁移</li><li>重建故障节点更快</li></ul>
+          </div>
+
+<h2 id="Partitioners"><a href="#Partitioners" class="headerlink" title="Partitioners"></a>Partitioners</h2><p><code>partitioners</code> 决定数据存放在哪个 <code>vnode</code> 上。它是一个 <code>hash</code> 函数，计算每行的  <code>partition key</code> 的 <code>hash</code> 值。<br>代码在 <code>org.apache.cassandra.dht</code> 包里,目前主要用 <code>Murmur3Partitioner</code><br><code>DHT</code>即为<code>distributed hash table</code>。</p>
+<h2 id="Replication-Strategies"><a href="#Replication-Strategies" class="headerlink" title="Replication Strategies"></a>Replication Strategies</h2><p>第一份复制存在对应 <code>vnode</code> 中。其他复制的存放位置由 <code>replica strategy</code> (或叫<code>replica placement strategy</code>)决定。</p>
+<p>主要有两种策略：</p>
+<ul>
+<li><p>SimpleStrategy<br>将副本放置在环上的连续节点处，从分区器指示的节点开始。</p>
+</li>
+<li><p>NetworkTopologyStrategy<br>允许为每个数据中心指定不同的复制因子。在数据中心内，它将副本分配给不同的 <code>rack</code>，以最大限度地提高可用性。</p>
+</li>
+</ul>
+<h2 id="Consistency-Levels"><a href="#Consistency-Levels" class="headerlink" title="Consistency Levels"></a>Consistency Levels</h2><p>根据 <code>CAP理论</code>, 一致性(C)，可用性(A)和分区容忍性(P)不可兼得。<br><code>Cassandra</code> 通过设置读写时最少响应节点的数量，实现了可调的一致性。<br>可选的一致性级别：<code>ANY</code>, <code>ONE</code>, <code>TWO</code>, <code>THREE</code>, <code>QUORUM</code>, <code>ALL</code><br>其中 <code>QUORUM</code>, <code>ALL</code> 是强一致性。</p>
+<p>强一致性公式：<code>R + W &gt; N</code> (R:读复制数， W:写复制数，N:复制因子)</p>
+<h2 id="Queries-and-Coordinator-Nodes"><a href="#Queries-and-Coordinator-Nodes" class="headerlink" title="Queries and Coordinator Nodes"></a>Queries and Coordinator Nodes</h2><p>可以连接任一节点来执行读写操作<br>被连接的节点叫做 <code>Coordinator Nodes</code> ,需要处理读写一致性。比如：写到多个节点，从多个节点读取。</p>
+<img src="/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/nodes.png" class="" title="Nodes">
+
+<h2 id="Memtables-SSTables-and-Commit-Log"><a href="#Memtables-SSTables-and-Commit-Log" class="headerlink" title="Memtables, SSTables, and Commit Log"></a>Memtables, SSTables, and Commit Log</h2><img src="/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/nodeinfo.png" class="" title="Node-Info">
+
+<h2 id="Caching"><a href="#Caching" class="headerlink" title="Caching"></a>Caching</h2><p>Caching 有三种 cache:</p>
+<ul>
+<li><p>key cache<br>缓存partiton keys到row index entries的映射，存在 jvm heap memory。</p>
+</li>
+<li><p>row cache<br>缓存常用的row, 存在 off-heap memory。</p>
+</li>
+<li><p>counter cache<br>提升counter性能，参见[Implementation of Counters]</p>
+</li>
+</ul>
+<h2 id="Hinted-Hando"><a href="#Hinted-Hando" class="headerlink" title="Hinted Hando"></a>Hinted Hando</h2><p>一种写入高可用特性，当写入请求发给 <code>coordinator</code> 是，<code>replica节点</code> 可能因为种种原因不可用(网络、硬件等)，此时 <code>coordinator</code> 会临时保存写请求, 等到 <code>replica节点</code> 重新上线时再写入。</p>
+<div class="note info">
+            <p><code>coordinator</code> 会临时保存写请求, 默认保留两个小时</p>
+          </div>
+
+
+<h1 id="基本流程"><a href="#基本流程" class="headerlink" title="基本流程"></a>基本流程</h1><p>基本流程: 点对点分布式系统，集群中各节点平等，数据分布于集群中各节点，各节点间每秒交换一次信息。<br>每个节点的 <code>commit log</code> 提交日志捕获写操作来确保数据持久性。<br>数据先被写入 <code>MemTable</code> (内存中的数据结构)，待 <code>MemTable</code> 满后数据被写入 <code>SSTable</code> (硬盘的数据文件)。<br>所有的写内容被自动在集群中 <code>partition</code> 分区并 <code>replicate</code> 复制。</p>
+<p>库表结构: <code>Cassandra</code> 数据库面向行。用户可连接至集群的任意节点，通过类似 SQL 的 <code>CQL</code> 查询数据。<br>集群中，一个应用一般包含一个keyspace，一个keyspace中包含多个表。</p>
+<p>读写请求: 客户端连接到某一节点发起读或写请求时，该节点充当客户端应用与拥有相应数据的节点间的<br><code>coordinator</code> 协调者以根据集群配置确定环(ring)中的哪个节点应当获取这个请求。</p>
+<img src="/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/flow.png" class="" title="Flow">
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Cassandra/" rel="tag"><i class="fa fa-tag"></i> Cassandra</a>
+              <a href="/tags/NoSQL/" rel="tag"><i class="fa fa-tag"></i> NoSQL</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/" rel="prev" title="Cassandra 监控方案">
+      <i class="fa fa-chevron-left"></i> Cassandra 监控方案
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/05/12/%E6%9E%B6%E6%9E%84/%E7%9B%91%E6%8E%A7/n9e/n9e-001/" rel="next" title="n9e - 生产环境部署">
+      n9e - 生产环境部署 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#概览"><span class="nav-number">1.</span> <span class="nav-text">概览</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#适合的场景"><span class="nav-number">2.</span> <span class="nav-text">适合的场景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#架构"><span class="nav-number">3.</span> <span class="nav-text">架构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#关键词"><span class="nav-number">3.1.</span> <span class="nav-text">关键词</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Data-Centers-and-Racks"><span class="nav-number">3.2.</span> <span class="nav-text">Data Centers and Racks</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Rack"><span class="nav-number">3.2.1.</span> <span class="nav-text">Rack</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Data-Center"><span class="nav-number">3.2.2.</span> <span class="nav-text">Data Center</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Gossip-and-Failure-Detection"><span class="nav-number">3.3.</span> <span class="nav-text">Gossip and Failure Detection</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Gossip-的优点"><span class="nav-number">3.3.1.</span> <span class="nav-text">Gossip 的优点</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Gossip-的缺陷"><span class="nav-number">3.3.2.</span> <span class="nav-text">Gossip 的缺陷</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Snitches"><span class="nav-number">3.4.</span> <span class="nav-text">Snitches</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Rings-and-Tokens"><span class="nav-number">3.5.</span> <span class="nav-text">Rings and Tokens</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#token"><span class="nav-number">3.5.1.</span> <span class="nav-text">token</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Virtual-Nodes"><span class="nav-number">3.6.</span> <span class="nav-text">Virtual Nodes</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Rings-Without-Virtual-Nodes"><span class="nav-number">3.6.1.</span> <span class="nav-text">Rings Without Virtual Nodes</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Rings-With-Virtual-Nodes"><span class="nav-number">3.6.2.</span> <span class="nav-text">Rings With Virtual Nodes</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#The-Benefit-of-Using-Rings-with-virtual-nodes"><span class="nav-number">3.6.3.</span> <span class="nav-text">The Benefit of Using Rings with virtual nodes</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Partitioners"><span class="nav-number">3.7.</span> <span class="nav-text">Partitioners</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Replication-Strategies"><span class="nav-number">3.8.</span> <span class="nav-text">Replication Strategies</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Consistency-Levels"><span class="nav-number">3.9.</span> <span class="nav-text">Consistency Levels</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Queries-and-Coordinator-Nodes"><span class="nav-number">3.10.</span> <span class="nav-text">Queries and Coordinator Nodes</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Memtables-SSTables-and-Commit-Log"><span class="nav-number">3.11.</span> <span class="nav-text">Memtables, SSTables, and Commit Log</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Caching"><span class="nav-number">3.12.</span> <span class="nav-text">Caching</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Hinted-Hando"><span class="nav-number">3.13.</span> <span class="nav-text">Hinted Hando</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#基本流程"><span class="nav-number">4.</span> <span class="nav-text">基本流程</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Eter"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Eter</p>
+  <div class="site-description" itemprop="description">但行好事 莫问前程</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/" title="GitHub → https:&#x2F;&#x2F;github.com"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://golang.org/doc/effective_go.html" title="https:&#x2F;&#x2F;golang.org&#x2F;doc&#x2F;effective_go.html" rel="noopener" target="_blank">Effective Go</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.golang.org/profiling-go-programs" title="https:&#x2F;&#x2F;blog.golang.org&#x2F;profiling-go-programs" rel="noopener" target="_blank">Profiling Go Programs</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://doc.rust-lang.org/book/" title="https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;book&#x2F;" rel="noopener" target="_blank">The Rust Programming Language</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://csoulsi.github.io/" title="https:&#x2F;&#x2F;csoulsi.github.io" rel="noopener" target="_blank">csoulsi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://schnappi618.github.io/" title="https:&#x2F;&#x2F;schnappi618.github.io&#x2F;" rel="noopener" target="_blank">schnappi618</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+      
+        <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+        <div class="widget-wrap">
+          <h3 class="widget-title">Tag Cloud</h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+            <canvas width="250" height="250" id="resCanvas" style="width:100%">
+              <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/CPP/" rel="tag">CPP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cassandra/" rel="tag">Cassandra</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/" rel="tag">Go</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go-Micro/" rel="tag">Go Micro</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Grafana/" rel="tag">Grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NoSQL/" rel="tag">NoSQL</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Prometheus/" rel="tag">Prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLA/" rel="tag">SLA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLI/" rel="tag">SLI</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLO/" rel="tag">SLO</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Smart-Pointers/" rel="tag">Smart Pointers</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiDB/" rel="tag">TiDB</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiKV/" rel="tag">TiKV</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nightingale/" rel="tag">nightingale</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/pprof/" rel="tag">pprof</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%86%85%E5%AD%98/" rel="tag">内存</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%AF%E9%9D%A0%E6%80%A7/" rel="tag">可靠性</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E7%A8%8B/" rel="tag">编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E8%AF%91/" rel="tag">编译</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B0%83%E8%AF%95/" rel="tag">调试</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%93%BE%E6%8E%A5/" rel="tag">链接</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li></ul>
+            </canvas>
+          </div>
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heartbeat"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">HulkLab</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">62k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">56 分钟</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+<script src="/js/bookmark.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

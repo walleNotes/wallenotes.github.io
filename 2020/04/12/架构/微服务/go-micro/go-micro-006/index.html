@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="XPII_t91-eBghgHpuxic4lhWHlvlxojKoB_lrpfuTwk">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"github.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":"ture"},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":true},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="M3O - 运行时工具 micro api">
+<meta property="og:type" content="article">
+<meta property="og:title" content="M3O - 运行时工具 micro api">
+<meta property="og:url" content="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/12/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/go-micro-006/index.html">
+<meta property="og:site_name" content="walle&#39;s Notes">
+<meta property="og:description" content="M3O - 运行时工具 micro api">
+<meta property="og:image" content="https://github.com/2020/04/12/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/go-micro-006/api.png">
+<meta property="article:published_time" content="2020-04-12T11:23:23.000Z">
+<meta property="article:modified_time" content="2021-10-11T04:25:00.997Z">
+<meta property="article:author" content="Eter">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="Go Micro">
+<meta property="article:tag" content="微服务">
+<meta property="article:tag" content="架构">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://github.com/2020/04/12/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/go-micro-006/api.png">
+
+<link rel="canonical" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/12/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/go-micro-006/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>M3O - 运行时工具 micro api | walle's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">walle's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Quick notes</p>
+  </div>
+
+  <div class="site-nav-right"></div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">27</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">19</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">20</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/12/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/go-micro-006/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Eter">
+      <meta itemprop="description" content="但行好事 莫问前程">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="walle's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          M3O - 运行时工具 micro api
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-12 19:23:23" itemprop="dateCreated datePublished" datetime="2020-04-12T19:23:23+08:00">2020-04-12</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%9E%B6%E6%9E%84/" itemprop="url" rel="index">
+                    <span itemprop="name">架构</span>
+                  </a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" itemprop="url" rel="index">
+                    <span itemprop="name">微服务</span>
+                  </a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/" itemprop="url" rel="index">
+                    <span itemprop="name">go-micro</span>
+                  </a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>1.1k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>1 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote class="blockquote-center"><p>M3O - 运行时工具 micro api </p>
+</blockquote>
+
+<a id="more"></a>
+
+<blockquote>
+<p><code>micro api</code> 就是 api 网关</p>
+</blockquote>
+<p>API 网关模式为服务提供了一个单一的公共入口。通过服务发现，<code>micro api</code> 以http 方式，将请求动态路由到具体的后台服务接口。我们以下简称 <code>API网关</code>。</p>
+<img src="/2020/04/12/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/go-micro-006/api.png" class="">
+
+<p>这种服务方式，将简化下游服务调用方式，极大的降低了使用难度。</p>
+<h2 id="概览"><a href="#概览" class="headerlink" title="概览"></a>概览</h2><p><code>API网关</code> 基于 <code>go-micro</code> 开发，所以它默认具备<code>服务发现</code>、<code>负载均衡</code>、<code>编码及RPC通信的能力</code>，故而，<code>API网关</code> 也是 <code>go-micro</code> 体系中的一个微服务，所以它自身也是可插拔的。</p>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go get -u github.com/micro/micro</span><br></pre></td></tr></table></figure>
+
+<h2 id="运行"><a href="#运行" class="headerlink" title="运行"></a>运行</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 默认的端口是8080, 如果不指定注册中心，默认 MICRO_REGISTRY 为 mdns</span></span><br><span class="line">micro api</span><br></pre></td></tr></table></figure>
+
+<h2 id="使用ACME协议"><a href="#使用ACME协议" class="headerlink" title="使用ACME协议"></a>使用ACME协议</h2><p>ACME（ Automatic Certificate Management Environment）是由 Let’s Encrypt制定的安全协议。</p>
+<h3 id="ACME-资料"><a href="#ACME-资料" class="headerlink" title="ACME 资料"></a>ACME 资料</h3><ul>
+<li><a href="https://letsencrypt.org/zh-cn/docs/" target="_blank" rel="noopener">ACME 文档</a></li>
+<li><a href="https://letsencrypt.org/zh-cn/how-it-works/" target="_blank" rel="noopener">Let’s Encrypt 的运作方式</a></li>
+<li><a href="https://letsencrypt.org/zh-cn/docs/client-options/" target="_blank" rel="noopener">ACME 客户端</a></li>
+</ul>
+<blockquote>
+<p>为了在您的网站上启用 HTTPS，您需要从证书颁发机构（CA）获取证书（一种文件）。Let’s Encrypt 是一个证书颁发机构（CA）。要从 Let’s Encrypt 获取您网站域名的证书，您必须证明您对域名的实际控制权。您可以在您的 Web 主机上运行使用 ACME 协议的软件来获取 Let’s Encrypt 证书。</p>
+</blockquote>
+<h3 id="API网关启用-ACME"><a href="#API网关启用-ACME" class="headerlink" title="API网关启用 ACME"></a><code>API网关</code>启用 <code>ACME</code></h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MICRO_ENABLE_ACME=<span class="literal">true</span> micro api</span><br></pre></td></tr></table></figure>
+
+<h3 id="配置白名单"><a href="#配置白名单" class="headerlink" title="配置白名单"></a>配置白名单</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MICRO_ENABLE_ACME=<span class="literal">true</span> \</span><br><span class="line">MICRO_ACME_HOSTS=example.com,api.example.com \</span><br><span class="line">micro api</span><br></pre></td></tr></table></figure>
+
+<h2 id="设置-TLS-证书"><a href="#设置-TLS-证书" class="headerlink" title="设置 TLS 证书"></a>设置 <code>TLS</code> 证书</h2><p>API服务支持TLS证书</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">MICRO_ENABLE_TLS=<span class="literal">true</span> \</span><br><span class="line">MICRO_TLS_CERT_FILE=/path/to/cert \</span><br><span class="line">MICRO_TLS_KEY_FILE=/path/to/key \</span><br><span class="line">micro api</span><br></pre></td></tr></table></figure>
+
+<h2 id="设置命名空间"><a href="#设置命名空间" class="headerlink" title="设置命名空间"></a>设置命名空间</h2><p>API使用带分隔符的命名空间来在逻辑上区分后台服务及公开的服务。命名空间及 <code>http</code> 请求路径会用于解析服务名与方法，比如 <code>GET /foo HTTP/1.1</code> 会被路由到 <code>go.micro.api.foo</code> 服务上。</p>
+<p>API默认的命名空间是 <code>go.micro.api</code>，当然，也可以修改：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MICRO_NAMESPACE=com.example.api micro api</span><br></pre></td></tr></table></figure>
+
+<p>通过设置命名空间为为空禁用命名空间，不建议禁用命名空间，如果非要禁用，可以通过以下方法设置。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MICRO_NAMESPACE=<span class="string">' '</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"><i class="fa fa-tag"></i> Go</a>
+              <a href="/tags/Go-Micro/" rel="tag"><i class="fa fa-tag"></i> Go Micro</a>
+              <a href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag"><i class="fa fa-tag"></i> 微服务</a>
+              <a href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 架构</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/05/%E7%BC%96%E7%A8%8B/%E8%B0%83%E8%AF%95/how-to-use-go-pprof/" rel="prev" title="如何使用 pprof 调试 golang 应用">
+      <i class="fa fa-chevron-left"></i> 如何使用 pprof 调试 golang 应用
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/14/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-001/" rel="next" title="Cassandra 简介">
+      Cassandra 简介 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#概览"><span class="nav-number">1.</span> <span class="nav-text">概览</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安装"><span class="nav-number">2.</span> <span class="nav-text">安装</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#运行"><span class="nav-number">3.</span> <span class="nav-text">运行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用ACME协议"><span class="nav-number">4.</span> <span class="nav-text">使用ACME协议</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#ACME-资料"><span class="nav-number">4.1.</span> <span class="nav-text">ACME 资料</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#API网关启用-ACME"><span class="nav-number">4.2.</span> <span class="nav-text">API网关启用 ACME</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#配置白名单"><span class="nav-number">4.3.</span> <span class="nav-text">配置白名单</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#设置-TLS-证书"><span class="nav-number">5.</span> <span class="nav-text">设置 TLS 证书</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#设置命名空间"><span class="nav-number">6.</span> <span class="nav-text">设置命名空间</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Eter"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Eter</p>
+  <div class="site-description" itemprop="description">但行好事 莫问前程</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/" title="GitHub → https:&#x2F;&#x2F;github.com"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://golang.org/doc/effective_go.html" title="https:&#x2F;&#x2F;golang.org&#x2F;doc&#x2F;effective_go.html" rel="noopener" target="_blank">Effective Go</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.golang.org/profiling-go-programs" title="https:&#x2F;&#x2F;blog.golang.org&#x2F;profiling-go-programs" rel="noopener" target="_blank">Profiling Go Programs</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://doc.rust-lang.org/book/" title="https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;book&#x2F;" rel="noopener" target="_blank">The Rust Programming Language</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://csoulsi.github.io/" title="https:&#x2F;&#x2F;csoulsi.github.io" rel="noopener" target="_blank">csoulsi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://schnappi618.github.io/" title="https:&#x2F;&#x2F;schnappi618.github.io&#x2F;" rel="noopener" target="_blank">schnappi618</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+      
+        <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+        <div class="widget-wrap">
+          <h3 class="widget-title">Tag Cloud</h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+            <canvas width="250" height="250" id="resCanvas" style="width:100%">
+              <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/CPP/" rel="tag">CPP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cassandra/" rel="tag">Cassandra</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/" rel="tag">Go</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go-Micro/" rel="tag">Go Micro</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Grafana/" rel="tag">Grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NoSQL/" rel="tag">NoSQL</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Prometheus/" rel="tag">Prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLA/" rel="tag">SLA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLI/" rel="tag">SLI</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLO/" rel="tag">SLO</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Smart-Pointers/" rel="tag">Smart Pointers</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiDB/" rel="tag">TiDB</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiKV/" rel="tag">TiKV</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nightingale/" rel="tag">nightingale</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/pprof/" rel="tag">pprof</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%86%85%E5%AD%98/" rel="tag">内存</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%AF%E9%9D%A0%E6%80%A7/" rel="tag">可靠性</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E7%A8%8B/" rel="tag">编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E8%AF%91/" rel="tag">编译</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B0%83%E8%AF%95/" rel="tag">调试</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%93%BE%E6%8E%A5/" rel="tag">链接</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li></ul>
+            </canvas>
+          </div>
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heartbeat"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">HulkLab</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">62k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">56 分钟</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+<script src="/js/bookmark.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

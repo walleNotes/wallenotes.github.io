@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="XPII_t91-eBghgHpuxic4lhWHlvlxojKoB_lrpfuTwk">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"github.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":"ture"},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":true},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="CPP 引入 Smart Pointer 的原因，以及最佳实践">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CPP使用Smart Pointer">
+<meta property="og:url" content="https://github.com/walleNotes/wallenotes.github.io.git/2018/01/01/%E7%BC%96%E7%A8%8B/CPP/cpp_smart_ptr/index.html">
+<meta property="og:site_name" content="walle&#39;s Notes">
+<meta property="og:description" content="CPP 引入 Smart Pointer 的原因，以及最佳实践">
+<meta property="og:image" content="https://github.com/2018/01/01/%E7%BC%96%E7%A8%8B/CPP/cpp_smart_ptr/unique_ptr.png">
+<meta property="og:image" content="https://github.com/2018/01/01/%E7%BC%96%E7%A8%8B/CPP/cpp_smart_ptr/shared_ptr.png">
+<meta property="article:published_time" content="2018-01-01T13:46:31.000Z">
+<meta property="article:modified_time" content="2021-10-11T04:25:01.000Z">
+<meta property="article:author" content="Eter">
+<meta property="article:tag" content="编程">
+<meta property="article:tag" content="CPP">
+<meta property="article:tag" content="Smart Pointers">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://github.com/2018/01/01/%E7%BC%96%E7%A8%8B/CPP/cpp_smart_ptr/unique_ptr.png">
+
+<link rel="canonical" href="https://github.com/walleNotes/wallenotes.github.io.git/2018/01/01/%E7%BC%96%E7%A8%8B/CPP/cpp_smart_ptr/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>CPP使用Smart Pointer | walle's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">walle's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Quick notes</p>
+  </div>
+
+  <div class="site-nav-right"></div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">27</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">19</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">20</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://github.com/walleNotes/wallenotes.github.io.git/2018/01/01/%E7%BC%96%E7%A8%8B/CPP/cpp_smart_ptr/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Eter">
+      <meta itemprop="description" content="但行好事 莫问前程">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="walle's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CPP使用Smart Pointer
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-01-01 21:46:31" itemprop="dateCreated datePublished" datetime="2018-01-01T21:46:31+08:00">2018-01-01</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%BC%96%E7%A8%8B/" itemprop="url" rel="index">
+                    <span itemprop="name">编程</span>
+                  </a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%BC%96%E7%A8%8B/CPP/" itemprop="url" rel="index">
+                    <span itemprop="name">CPP</span>
+                  </a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>11k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>10 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote class="blockquote-center"><p>CPP 引入 Smart Pointer 的原因，以及最佳实践 </p>
+</blockquote>
+
+<a id="more"></a>
+
+<h2 id="Smart-Pointer-引入原因"><a href="#Smart-Pointer-引入原因" class="headerlink" title="Smart Pointer 引入原因"></a>Smart Pointer 引入原因</h2><p>使用 Raw Pointer 管理动态内存时，经常会遇到这样的问题：</p>
+<ul>
+<li>忘记delete内存，造成内存泄露</li>
+<li>出现异常时，不会执行delete，造成内存泄露</li>
+</ul>
+<p>下面的代码解释了，当一个操作发生异常时，会导致delete不会被执行：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">func</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">auto</span> ptr = <span class="keyword">new</span> Widget;</span><br><span class="line">    <span class="comment">// 执行一个会抛出异常的操作</span></span><br><span class="line">    func_throw_exception();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">delete</span> ptr;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在 C++98 中我们需要用一种笨拙的方式，写出异常安全的代码：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">func</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">auto</span> ptr = <span class="keyword">new</span> Widget;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        func_throw_exception();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">catch</span>(...) &#123;</span><br><span class="line">        <span class="keyword">delete</span> ptr;</span><br><span class="line">        <span class="keyword">throw</span>; </span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">delete</span> ptr;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>C++11 使用 Smart Pointer 能轻易写出异常安全的代码，因为当对象退出作用域时, Smart Pointer 将自动调用对象的析构函数，避免内存泄露：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">func</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">unique_ptr</span>&lt;Widget&gt; ptr&#123; <span class="keyword">new</span> Widget &#125;;</span><br><span class="line">    func_throw_exception();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="Smart-Pointer-使用方法"><a href="#Smart-Pointer-使用方法" class="headerlink" title="Smart Pointer 使用方法"></a>Smart Pointer 使用方法</h2><p>Smart Pointer 在 <memory> 头文件的 std 名称空间中定义。 它们对于RAII或资源获取初始化编程惯用语至关重要。 这个习惯用法的主要目标是确保资源获取在对象被初始化的同时进行，以便在一行代码中创建和准备对象的所有资源。 实际上，RAII的主要原则是将任何堆分配的资源（例如，动态分配的内存或系统对象句柄）归属给一个堆栈分配的对象，该对象的析构函数包含删除或释放资源的代码， 还有任何相关的清理代码。</p>
+<p>在大多数情况下，初始化 Raw Pointer 或资源句柄以指向实际资源时，请立即将指针传递给Smart Pointer。在现代C++中，Raw Pointer 仅用于有限范围，循环或辅助函数的小代码块，其中性能至关重要，并且不存在对所有权混淆的可能性。</p>
+<p>以下示例将 Raw Pointer 声明与 Smart Pointer 声明进行比较。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 使用 Raw Pointer</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">UseRawPointer</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 使用 Raw Pointer -- 不推荐 </span></span><br><span class="line">    Song* pSong = <span class="keyword">new</span> Song(<span class="string">L"Nothing on You"</span>, <span class="string">L"Bruno Mars"</span>); </span><br><span class="line"></span><br><span class="line">    <span class="comment">// Use pSong...</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使用完成后，不要忘记释放申请的空间</span></span><br><span class="line">    <span class="keyword">delete</span> pSong;   </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用 Smart Pointer</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">UseSmartPointer</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 在堆栈上声明一个 Smart Pointer 并将其传递给 Raw Pointer  -- 推荐</span></span><br><span class="line">    <span class="function"><span class="built_in">unique_ptr</span>&lt;Song&gt; <span class="title">song2</span><span class="params">(<span class="keyword">new</span> Song(<span class="string">L"Nothing on You"</span>, <span class="string">L"Bruno Mars"</span>))</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Use song2...</span></span><br><span class="line">    <span class="built_in">wstring</span> s = song2-&gt;duration_;</span><br><span class="line">    <span class="comment">//...</span></span><br><span class="line"></span><br><span class="line">&#125; <span class="comment">// song2 该程序块执行完后自动删除</span></span><br></pre></td></tr></table></figure>
+<p>如示例中所示， Smart Pointer 是您在堆栈中声明的类模板，并使用指向堆分配对象的 Raw Pointer 进行初始化。 Smart Pointer 初始化后，它拥有 Raw Pointer 。这意味着 Smart Pointer 负责删除 Raw Pointer 指定的内存。 Smart Pointer 析构函数包含对删除的调用，并且因为 Smart Pointer 在堆栈中声明，所以当 Smart Pointer 超出作用域时，即使在堆栈之后的某处抛出异常，也会调用析构函数。</p>
+<p>通过使用熟悉的指针操作符 -&gt; 和 * 来访问封装的指针， Smart Pointer 类重载该指针来返回封装的 Raw Pointer 。</p>
+<p>C++ Smart Pointer 的对象创建：您创建对象，然后让系统在正确的时间删除它。不同之处在于没有单独的垃圾收集器在后台运行; 内存通过标准C++范围规则进行管理，以便运行时环境更快，更高效。</p>
+<div class="note info">
+            <p>总是在单独的代码行上创建Smart Pointer，而不是在参数列表中创建，以便由于某些参数列表分配规则而不会发生细微的资源泄漏。</p>
+          </div>
+
+
+<p>以下示例显示了如何使用标准模板库中的unique_ptrSmart Pointer类型来封装指向大对象的指针。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">LargeObject</span> &#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">DoSomething</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">ProcessLargeObject</span><span class="params">(<span class="keyword">const</span> LargeObject&amp; lo)</span></span>&#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">SmartPointerDemo</span><span class="params">()</span> </span>&#123;    </span><br><span class="line">    <span class="comment">// Create the object and pass it to a smart pointer</span></span><br><span class="line">    <span class="function"><span class="built_in">std</span>::<span class="built_in">unique_ptr</span>&lt;LargeObject&gt; <span class="title">pLarge</span><span class="params">(<span class="keyword">new</span> LargeObject())</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//Call a method on the object</span></span><br><span class="line">    pLarge-&gt;DoSomething();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Pass a reference to a method.</span></span><br><span class="line">    ProcessLargeObject(*pLarge);</span><br><span class="line"></span><br><span class="line">&#125; <span class="comment">//pLarge is deleted automatically when function block goes out of scope.</span></span><br></pre></td></tr></table></figure>
+<p>该示例演示了使用 Smart Pointer 的以下基本步骤:</p>
+<div class="note info">
+            <ul><li>将Smart Pointer声明为自动（本地）变量<br>– 不要在Smart Pointer本身上使用new 或 malloc 表达式</li><li>在类型参数中，指定封装指针的指向类型</li><li>将一个Raw Pointer传递给Smart Pointer构造函数中的新对象<br>– Some utility functions or smart pointer constructors do this for you </li><li>使用重载的 -&gt; 和 * 运算符来访问该对象</li><li>让 Smart Pointer 删除对象</li></ul>
+          </div>
+
+<p>Smart Pointer 的设计在内存和性能方面尽可能高效。 例如，unique_ptr中唯一的数据成员是封装的指针。 这意味着 unique_ptr 与该指针的大小完全相同，可以是四个字节，也可以是八个字节。 通过使用Smart Pointer重载的 * 和 -&gt; 操作符访问封装的指针不会比直接访问 Raw Pointer 慢得多。</p>
+<p>Smart Pointer有自己的成员函数，可以用“.”符号来访问。 例如，一些STL Smart Pointer有一个 reset member function ，释放指针的所有权。 如果您想在 Smart Pointer 超出范围之前释放 Smart Pointer 所拥有的内存，这非常有用，如下例所示。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">SmartPointerDemo2</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// Create the object and pass it to a smart pointer</span></span><br><span class="line">    <span class="function"><span class="built_in">std</span>::<span class="built_in">unique_ptr</span>&lt;LargeObject&gt; <span class="title">pLarge</span><span class="params">(<span class="keyword">new</span> LargeObject())</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//Call a method on the object</span></span><br><span class="line">    pLarge-&gt;DoSomething();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Free the memory before we exit function block.</span></span><br><span class="line">    pLarge.reset();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Do some other work...</span></span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="Smart-Pointer-类型"><a href="#Smart-Pointer-类型" class="headerlink" title="Smart Pointer 类型"></a>Smart Pointer 类型</h2><ul>
+<li>** unique_ptr **<ul>
+<li>仅允许一个底层指针的所有者</li>
+<li>可以移动到新的所有者，但不能复制或共享</li>
+<li>unique_ptr小而高效, 大小是一个指针</li>
+<li>它支持右值引用，以便从STL集合中快速插入和检索</li>
+<li>头文件：<code>&lt;memory&gt;</code></li>
+</ul>
+</li>
+<li>** shared_ptr **<ul>
+<li>引用计数的Smart Pointer</li>
+<li>当您想要将一个Raw Pointer分配给多个所有者时使用，例如，当您从容器中返回指针的副本但想保留Raw Pointer时。 直到所有shared_ptr所有者超出范围或放弃所有权之后，才会删除Raw Pointer</li>
+<li>大小是两个指针, 一个用于对象，另一个用于包含引用计数的共享控制块</li>
+<li>头文件：<code>&lt;memory&gt;</code></li>
+</ul>
+</li>
+<li>** weak_ptr **<ul>
+<li>与shared_ptr结合使用的特例Smart Pointer</li>
+<li>weak_ptr 提供对一个或多个shared_ptr实例拥有的对象的访问权限，但不参与引用计数</li>
+<li>当你想观察一个物体时使用，但不要求它保持活着。在某些情况下需要中断shared_ptr实例之间的循环引用。 </li>
+<li>头文件：<code>&lt;memory&gt;</code></li>
+</ul>
+</li>
+</ul>
+<h2 id="创建和使用unique-ptr实例"><a href="#创建和使用unique-ptr实例" class="headerlink" title="创建和使用unique_ptr实例"></a>创建和使用unique_ptr实例</h2><p>A unique_ptr不会共享它的指针。 无法将它复制到另一个unique_ptr，（除非它是可修改rvalue） 通过值传递给函数，或需要对其进行复制的任何标准模板库 (STL) 算法中使用。 A unique_ptr只能移动。 这意味着内存资源的所有权将转移到新的unique_ptr和原始unique_ptr不再拥有它。 我们建议您将一个对象限制为一个所有者，因为拥有多个程序逻辑增加复杂性。 因此，当您需要为普通的 C++ 对象的 Smart Pointer ，使用unique_ptr。</p>
+<p>下图说明了两个转让所有权unique_ptr实例。</p>
+<img src="/2018/01/01/%E7%BC%96%E7%A8%8B/CPP/cpp_smart_ptr/unique_ptr.png" class="" title="unique_ptr">
+
+<p>移动 unique_ptr 的所有权, unique_ptr在中定义<memory> STL 中的标头。 它是完全有效与 Raw Pointer ，可以使用 STL 容器中。 添加unique_ptr是有效的实例的 STL 容器因为移动构造函数的unique_ptr不需要复制操作。</p>
+<p>** 示例 **<br>下面的示例演示如何创建unique_ptr实例，并在函数之间传递它们。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// </span></span><br><span class="line"><span class="comment">// Created by Eter J on 2017/12/31.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;memory&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">Foo</span> &#123;</span></span><br><span class="line">    Foo() &#123; <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"Foo::Foo\n"</span>; &#125;</span><br><span class="line">    ~Foo() &#123; <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"Foo::~Foo\n"</span>; &#125;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">bar</span><span class="params">()</span> </span>&#123; <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"Foo::bar\n"</span>; &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">f</span><span class="params">(<span class="keyword">const</span> Foo &amp;foo)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"f(const Foo&amp;)\n"</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="function"><span class="built_in">std</span>::<span class="built_in">unique_ptr</span>&lt;Foo&gt; <span class="title">p1</span><span class="params">(<span class="keyword">new</span> Foo)</span></span>;  <span class="comment">// p1 owns Foo</span></span><br><span class="line">    <span class="keyword">if</span> (p1) p1-&gt;bar();</span><br><span class="line"></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="function"><span class="built_in">std</span>::<span class="built_in">unique_ptr</span>&lt;Foo&gt; <span class="title">p2</span><span class="params">(<span class="built_in">std</span>::move(p1))</span></span>;  <span class="comment">// now p2 owns Foo</span></span><br><span class="line">        f(*p2);</span><br><span class="line"></span><br><span class="line">        p1 = <span class="built_in">std</span>::move(p2);  <span class="comment">// ownership returns to p1</span></span><br><span class="line">        <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"destroying p2...\n"</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (p1) p1-&gt;bar();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Foo instance is destroyed when p1 goes out of scope</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="built_in">unique_ptr</span>&lt;Song&gt; <span class="title">SongFactory</span><span class="params">(<span class="built_in">std</span>::<span class="built_in">wstring</span> artist, <span class="built_in">std</span>::<span class="built_in">wstring</span> title)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// Implicit move operation into the variable that stores the result. </span></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">unique_ptr</span>&lt;Song&gt;(<span class="keyword">new</span> Song(artist, title));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">MakeSongs</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// Create a new unique_ptr with a new object.</span></span><br><span class="line">    <span class="built_in">unique_ptr</span>&lt;Song&gt; pSong = <span class="built_in">unique_ptr</span>&lt;Song&gt;(<span class="keyword">new</span> Song(<span class="string">L"Mr. Children"</span>, <span class="string">L"Namonaki Uta"</span>));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Use the unique_ptr</span></span><br><span class="line">    <span class="built_in">vector</span>&lt;<span class="built_in">wstring</span>&gt; titles;</span><br><span class="line">    titles.push_back(pSong-&gt;title);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Move raw pointer from one unique_ptr to another.</span></span><br><span class="line">    <span class="built_in">unique_ptr</span>&lt;Song&gt; pSong2 = <span class="built_in">std</span>::move(pSong);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Obtain unique_ptr from function that returns rvalue reference.</span></span><br><span class="line">    <span class="keyword">auto</span> pSong3 = SongFactory(<span class="string">L"Michael Jackson"</span>, <span class="string">L"Beat It"</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这些例子演示了unique_ptr的基本特征：它可以被移动，但不能被复制。 “移动”将所有权转移到新的unique_ptr并重置旧的unique_ptr。</p>
+<p>以下示例显示如何创建unique_ptr实例并在矢量中使用它们</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">SongVector</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">vector</span>&lt;<span class="built_in">unique_ptr</span>&lt;Song&gt;&gt; v;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Create a few new unique_ptr&lt;Song&gt; instances </span></span><br><span class="line">    <span class="comment">// and add them to vector using implicit move semantics.</span></span><br><span class="line">    v.push_back(<span class="built_in">unique_ptr</span>&lt;Song&gt;(<span class="keyword">new</span> Song(<span class="string">L"B'z"</span>, <span class="string">L"Juice"</span>)));</span><br><span class="line">    v.push_back(<span class="built_in">unique_ptr</span>&lt;Song&gt;(<span class="keyword">new</span> Song(<span class="string">L"Namie Amuro"</span>, <span class="string">L"Funky Town"</span>)));</span><br><span class="line">    v.push_back(<span class="built_in">unique_ptr</span>&lt;Song&gt;(<span class="keyword">new</span> Song(<span class="string">L"Kome Kome Club"</span>, <span class="string">L"Kimi ga Iru Dake de"</span>)));</span><br><span class="line">    v.push_back(<span class="built_in">unique_ptr</span>&lt;Song&gt;(<span class="keyword">new</span> Song(<span class="string">L"Ayumi Hamasaki"</span>, <span class="string">L"Poker Face"</span>)));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Pass by reference to lambda body. </span></span><br><span class="line">    for_each(v.begin(), v.end(), [] (<span class="keyword">const</span> <span class="built_in">unique_ptr</span>&lt;Song&gt;&amp; p)</span><br><span class="line">    &#123;</span><br><span class="line">        wcout &lt;&lt; <span class="string">L"Artist: "</span> &lt;&lt; p-&gt;artist &lt;&lt; <span class="string">L"Title: "</span> &lt;&lt; p-&gt;title &lt;&lt; <span class="built_in">endl</span>; </span><br><span class="line">    &#125;);        </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在for_each循环中，请注意unique_ptr是在lambda表达式中通过引用传递的。 如果你尝试在这里传值，编译器会抛出一个错误，因为unique_ptr拷贝构造函数被禁用。</p>
+<p>以下示例显示如何初始化一个类成员unique_ptr。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MyClass</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    <span class="comment">// MyClass owns the unique_ptr.</span></span><br><span class="line">    <span class="built_in">unique_ptr</span>&lt;ClassFactory&gt; factory;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Initialize by invoking the unique_ptr move constructor.</span></span><br><span class="line">    MyClass() : factory ( <span class="built_in">unique_ptr</span>&lt;ClassFactory&gt;(<span class="keyword">new</span> ClassFactory()))</span><br><span class="line">    &#123;              </span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">MakeClass</span><span class="params">()</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        factory-&gt;DoSomething();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<div class="note info">
+            <ul><li>仅允许一个底层指针的所有者</li><li>可以移动到新的所有者，但不能复制或共享</li></ul>
+          </div>
+
+<h2 id="创建和使用shared-ptr实例"><a href="#创建和使用shared-ptr实例" class="headerlink" title="创建和使用shared_ptr实例"></a>创建和使用shared_ptr实例</h2><p>shared_ptr 类型是 Smart Pointer 在为方案设计多个所有者可能必须管理对象生存期内存中的 C++ 标准库中。 在初始化可以将它复制的 shared_ptr 后，将它在函数参数的值，并将其分配给其他 shared_ptr 实例。 所有实例指向同一对象，并且，对“的共享访问控制块”该引用计数的增量和减量，每当新 shared_ptr 添加，超出范围或重新设置。 当引用计数达到零时，控制块删除内存资源和自身。</p>
+<p>下图显示了指向个内存位置的几 shared_ptr 实例。</p>
+<img src="/2018/01/01/%E7%BC%96%E7%A8%8B/CPP/cpp_smart_ptr/shared_ptr.png" class="" title="shared_ptr">
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// Created by Eter J on 2017/12/31.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;memory&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">C</span> &#123;</span>&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">shared_ptr</span>&lt;C&gt; gp;</span><br><span class="line">    &#123;</span><br><span class="line">        C* ptr = <span class="keyword">new</span> C;</span><br><span class="line">        <span class="function"><span class="built_in">shared_ptr</span>&lt;C&gt; <span class="title">sp</span><span class="params">(ptr)</span></span>;</span><br><span class="line">        gp = sp ;</span><br><span class="line">        <span class="built_in">cout</span> &lt;&lt; <span class="string">"sp.use_count(): "</span> &lt;&lt; sp.use_count() &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">        <span class="built_in">cout</span> &lt;&lt; <span class="string">"gp.use_count(): "</span> &lt;&lt; gp.use_count() &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; <span class="string">"gp.use_count(): "</span> &lt;&lt; gp.use_count() &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>OUTPUT:</p>
+<blockquote>
+<p>sp.use_count(): 1<br>gp.use_count(): 2<br>gp.use_count(): 1</p>
+</blockquote>
+<h2 id="创建和使用weak-ptr实例"><a href="#创建和使用weak-ptr实例" class="headerlink" title="创建和使用weak_ptr实例"></a>创建和使用weak_ptr实例</h2><p>有时一个对象必须存储一个访问shared_ptr的底层对象的方法，而不会导致引用计数增加。通常情况下，如果在shared_ptr实例之间有循环引用，则会发生这种情况。</p>
+<p>最好的设计是尽可能避免指针的共享所有权。但是，如果您必须共享shared_ptr实例的所有权，请避免它们之间的循环引用。当循环引用是不可避免的，或者由于某种原因更可取的时候，使用weak_ptr来给一个或多个所有者一个弱引用给另一个shared_ptr。通过使用weak_ptr，您可以创建一个shared_ptr，它将连接到现有的一组相关实例，但前提是基础内存资源仍然有效。 weak_ptr本身不参与引用计数，因此它不能阻止引用计数变为零。但是，可以使用weak_ptr尝试获取初始化的shared_ptr的新副本。如果内存已被删除，则抛出bad_weak_ptr异常。如果内存仍然有效，那么只要shared_ptr变量保持在作用域内，新的共享指针就会增加引用计数并保证内存有效。</p>
+<p>下面的代码示例演示了weak_ptr用于确保正确删除具有循环依赖关系的对象的情况。当你检查这个例子时，假设它只是在考虑了其他解决方案之后才创建的。 Controller对象表示机器进程的某些方面，它们独立运行。每个控制器必须能够随时查询其他控制器的状态，并且每个控制器都包含一个专用矢量<code>&lt;weak_ptr &lt;Controller&gt;&gt;</code>。每个向量包含一个循环引用，因此，使用weak_ptr实例而不是shared_ptr。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// Created by Eter J on 2018/1/1.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;memory&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;vector&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;algorithm&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Controller</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="keyword">int</span> Num;</span><br><span class="line">    <span class="built_in">wstring</span> Status;</span><br><span class="line">    <span class="built_in">vector</span>&lt;weak_ptr&lt;Controller&gt;&gt; others;</span><br><span class="line">    explicit Controller(int i) : Num(i) , Status(L"On")</span><br><span class="line">    &#123;</span><br><span class="line">        wcout &lt;&lt; <span class="string">L"Creating Controller"</span> &lt;&lt; Num &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ~Controller()</span><br><span class="line">    &#123;</span><br><span class="line">        wcout &lt;&lt; <span class="string">L"Destroying Controller"</span> &lt;&lt; Num &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Demonstrates how to test whether the</span></span><br><span class="line">    <span class="comment">// pointed-to memory still exists or not.</span></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">CheckStatuses</span><span class="params">()</span> <span class="keyword">const</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        for_each(others.begin(), others.end(), [] (weak_ptr&lt;Controller&gt; wp)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">try</span></span><br><span class="line">            &#123;</span><br><span class="line">                <span class="keyword">auto</span> p = wp.lock();</span><br><span class="line">                wcout &lt;&lt; <span class="string">L"Status of "</span> &lt;&lt; p-&gt;Num &lt;&lt; <span class="string">" = "</span> &lt;&lt; p-&gt;Status &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">catch</span> (bad_weak_ptr b)</span><br><span class="line">            &#123;</span><br><span class="line">                wcout &lt;&lt; <span class="string">L"Null object"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">RunTest</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">vector</span>&lt;<span class="built_in">shared_ptr</span>&lt;Controller&gt;&gt; v;</span><br><span class="line"></span><br><span class="line">    v.push_back(<span class="built_in">shared_ptr</span>&lt;Controller&gt;(<span class="keyword">new</span> Controller(<span class="number">0</span>)));</span><br><span class="line">    v.push_back(<span class="built_in">shared_ptr</span>&lt;Controller&gt;(<span class="keyword">new</span> Controller(<span class="number">1</span>)));</span><br><span class="line">    v.push_back(<span class="built_in">shared_ptr</span>&lt;Controller&gt;(<span class="keyword">new</span> Controller(<span class="number">2</span>)));</span><br><span class="line">    v.push_back(<span class="built_in">shared_ptr</span>&lt;Controller&gt;(<span class="keyword">new</span> Controller(<span class="number">3</span>)));</span><br><span class="line">    v.push_back(<span class="built_in">shared_ptr</span>&lt;Controller&gt;(<span class="keyword">new</span> Controller(<span class="number">4</span>)));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Each controller depends on all others not being deleted.</span></span><br><span class="line">    <span class="comment">// Give each controller a pointer to all the others.</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span> ; i &lt; v.size(); ++i)</span><br><span class="line">    &#123;</span><br><span class="line">        for_each(v.begin(), v.end(), [v,i] (<span class="built_in">shared_ptr</span>&lt;Controller&gt; p)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span>(p-&gt;Num != i)</span><br><span class="line">            &#123;</span><br><span class="line">                v[i]-&gt;others.push_back(weak_ptr&lt;Controller&gt;(p));</span><br><span class="line">                wcout &lt;&lt; <span class="string">L"push_back to v["</span> &lt;&lt; i &lt;&lt; <span class="string">"]: "</span> &lt;&lt; p-&gt;Num &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    for_each(v.begin(), v.end(), [](<span class="built_in">shared_ptr</span>&lt;Controller&gt;&amp; p)</span><br><span class="line">    &#123;</span><br><span class="line">        wcout &lt;&lt; <span class="string">L"use_count = "</span> &lt;&lt; p.use_count() &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">        p-&gt;CheckStatuses();</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    RunTest();</span><br><span class="line">    wcout &lt;&lt; <span class="string">L"Press any key"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">    <span class="keyword">char</span> ch;</span><br><span class="line">    <span class="built_in">cin</span>.getline(&amp;ch, <span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>OUTPUT</p>
+<blockquote>
+<p>Creating Controller0<br>Creating Controller1<br>Creating Controller2<br>Creating Controller3<br>Creating Controller4<br>push_back to v[0]: 1<br>push_back to v[0]: 2<br>push_back to v[0]: 3<br>push_back to v[0]: 4<br>push_back to v[1]: 0<br>push_back to v[1]: 2<br>push_back to v[1]: 3<br>push_back to v[1]: 4<br>push_back to v[2]: 0<br>push_back to v[2]: 1<br>push_back to v[2]: 3<br>push_back to v[2]: 4<br>push_back to v[3]: 0<br>push_back to v[3]: 1<br>push_back to v[3]: 2<br>push_back to v[3]: 4<br>push_back to v[4]: 0<br>push_back to v[4]: 1<br>push_back to v[4]: 2<br>push_back to v[4]: 3<br>use_count = 1<br>Status of 1 = On<br>Status of 2 = On<br>Status of 3 = On<br>Status of 4 = On<br>use_count = 1<br>Status of 0 = On<br>Status of 2 = On<br>Status of 3 = On<br>Status of 4 = On<br>use_count = 1<br>Status of 0 = On<br>Status of 1 = On<br>Status of 3 = On<br>Status of 4 = On<br>use_count = 1<br>Status of 0 = On<br>Status of 1 = On<br>Status of 2 = On<br>Status of 4 = On<br>use_count = 1<br>Status of 0 = On<br>Status of 1 = On<br>Status of 2 = On<br>Status of 3 = On<br>Destroying Controller4<br>Destroying Controller3<br>Destroying Controller2<br>Destroying Controller1<br>Destroying Controller0<br>Press any key</p>
+</blockquote>
+<hr>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E7%BC%96%E7%A8%8B/" rel="tag"><i class="fa fa-tag"></i> 编程</a>
+              <a href="/tags/CPP/" rel="tag"><i class="fa fa-tag"></i> CPP</a>
+              <a href="/tags/Smart-Pointers/" rel="tag"><i class="fa fa-tag"></i> Smart Pointers</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item"></div>
+      <div class="post-nav-item">
+    <a href="/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/" rel="next" title="从存储器到内存映射布局">
+      从存储器到内存映射布局 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Smart-Pointer-引入原因"><span class="nav-number">1.</span> <span class="nav-text">Smart Pointer 引入原因</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Smart-Pointer-使用方法"><span class="nav-number">2.</span> <span class="nav-text">Smart Pointer 使用方法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Smart-Pointer-类型"><span class="nav-number">3.</span> <span class="nav-text">Smart Pointer 类型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建和使用unique-ptr实例"><span class="nav-number">4.</span> <span class="nav-text">创建和使用unique_ptr实例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建和使用shared-ptr实例"><span class="nav-number">5.</span> <span class="nav-text">创建和使用shared_ptr实例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建和使用weak-ptr实例"><span class="nav-number">6.</span> <span class="nav-text">创建和使用weak_ptr实例</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Eter"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Eter</p>
+  <div class="site-description" itemprop="description">但行好事 莫问前程</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/" title="GitHub → https:&#x2F;&#x2F;github.com"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://golang.org/doc/effective_go.html" title="https:&#x2F;&#x2F;golang.org&#x2F;doc&#x2F;effective_go.html" rel="noopener" target="_blank">Effective Go</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.golang.org/profiling-go-programs" title="https:&#x2F;&#x2F;blog.golang.org&#x2F;profiling-go-programs" rel="noopener" target="_blank">Profiling Go Programs</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://doc.rust-lang.org/book/" title="https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;book&#x2F;" rel="noopener" target="_blank">The Rust Programming Language</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://csoulsi.github.io/" title="https:&#x2F;&#x2F;csoulsi.github.io" rel="noopener" target="_blank">csoulsi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://schnappi618.github.io/" title="https:&#x2F;&#x2F;schnappi618.github.io&#x2F;" rel="noopener" target="_blank">schnappi618</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+      
+        <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+        <div class="widget-wrap">
+          <h3 class="widget-title">Tag Cloud</h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+            <canvas width="250" height="250" id="resCanvas" style="width:100%">
+              <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/CPP/" rel="tag">CPP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cassandra/" rel="tag">Cassandra</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/" rel="tag">Go</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go-Micro/" rel="tag">Go Micro</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Grafana/" rel="tag">Grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NoSQL/" rel="tag">NoSQL</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Prometheus/" rel="tag">Prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLA/" rel="tag">SLA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLI/" rel="tag">SLI</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLO/" rel="tag">SLO</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Smart-Pointers/" rel="tag">Smart Pointers</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiDB/" rel="tag">TiDB</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiKV/" rel="tag">TiKV</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nightingale/" rel="tag">nightingale</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/pprof/" rel="tag">pprof</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%86%85%E5%AD%98/" rel="tag">内存</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%AF%E9%9D%A0%E6%80%A7/" rel="tag">可靠性</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E7%A8%8B/" rel="tag">编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E8%AF%91/" rel="tag">编译</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B0%83%E8%AF%95/" rel="tag">调试</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%93%BE%E6%8E%A5/" rel="tag">链接</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li></ul>
+            </canvas>
+          </div>
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heartbeat"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">HulkLab</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">62k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">56 分钟</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+<script src="/js/bookmark.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

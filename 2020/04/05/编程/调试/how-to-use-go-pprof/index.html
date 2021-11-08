@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="XPII_t91-eBghgHpuxic4lhWHlvlxojKoB_lrpfuTwk">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"github.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":"ture"},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":true},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Golang 是一个对性能要求很高的语言，因此语言中自带的 pprof 工具成为我们检测 Golang 开发应用性能的利器。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="如何使用 pprof 调试 golang 应用">
+<meta property="og:url" content="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/05/%E7%BC%96%E7%A8%8B/%E8%B0%83%E8%AF%95/how-to-use-go-pprof/index.html">
+<meta property="og:site_name" content="walle&#39;s Notes">
+<meta property="og:description" content="Golang 是一个对性能要求很高的语言，因此语言中自带的 pprof 工具成为我们检测 Golang 开发应用性能的利器。">
+<meta property="article:published_time" content="2020-04-05T12:50:35.000Z">
+<meta property="article:modified_time" content="2021-10-11T04:25:01.003Z">
+<meta property="article:author" content="Eter">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="调试">
+<meta property="article:tag" content="pprof">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/05/%E7%BC%96%E7%A8%8B/%E8%B0%83%E8%AF%95/how-to-use-go-pprof/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>如何使用 pprof 调试 golang 应用 | walle's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">walle's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Quick notes</p>
+  </div>
+
+  <div class="site-nav-right"></div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">27</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">19</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">20</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/05/%E7%BC%96%E7%A8%8B/%E8%B0%83%E8%AF%95/how-to-use-go-pprof/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Eter">
+      <meta itemprop="description" content="但行好事 莫问前程">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="walle's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          如何使用 pprof 调试 golang 应用
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-05 20:50:35" itemprop="dateCreated datePublished" datetime="2020-04-05T20:50:35+08:00">2020-04-05</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%BC%96%E7%A8%8B/" itemprop="url" rel="index">
+                    <span itemprop="name">编程</span>
+                  </a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%BC%96%E7%A8%8B/%E8%B0%83%E8%AF%95/" itemprop="url" rel="index">
+                    <span itemprop="name">调试</span>
+                  </a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>2.6k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>2 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote class="blockquote-center"><p> Golang 是一个对性能要求很高的语言，<br>因此语言中自带的 pprof 工具成为我们检测 Golang 开发应用性能的利器。 </p>
+</blockquote>
+
+<a id="more"></a>
+
+<p>Google 开发的 Golang 自 2009 年推出，已经日趋成为各大公司开发后端服务使用的语言，有名的基于 Golang 的开源项目有 Docker、Kubernetes 等。当使用 Golang 开发服务后端服务时，难免产生性能问题，如内存泄漏、Goroutine 卡死等，Golang 是一个对性能要求很高的语言，因此语言中自带的 <code>pprof</code> 工具成为我们检测 Golang 开发应用性能的利器。</p>
+<p><code>Profiling</code> 一般翻译为 画像，在计算机领域，我们可以将其理解为当前应用状态的画像。当程序性能不佳时，我们希望知道应用在 什么地方 耗费了 多少 CPU、memory。下面将介绍如何使用这一工具。</p>
+<h2 id="Golang-服务主要关注的应用运行情况包含以下几种"><a href="#Golang-服务主要关注的应用运行情况包含以下几种" class="headerlink" title="Golang 服务主要关注的应用运行情况包含以下几种"></a>Golang 服务主要关注的应用运行情况包含以下几种</h2><ul>
+<li>CPU profile：报告程序的 CPU 使用情况，按照一定频率去采集应用程序在 CPU 和寄存器上面的数据</li>
+<li>Memory Profile（Heap Profile）：报告程序的内存使用情况</li>
+<li>Block Profiling：报告 goroutines 不在运行状态的情况，可以用来分析和查找死锁等性能瓶颈</li>
+<li>Goroutine Profiling：报告 goroutines 的使用情况，有哪些 goroutine，它们的调用关系是怎样的</li>
+</ul>
+<h2 id="两种使用方式"><a href="#两种使用方式" class="headerlink" title="两种使用方式"></a>两种使用方式</h2><p>go 语言提供了 <code>runtime/pprof</code> 和 <code>net/http/pprof</code> 两个库，这部分我们讲讲它们的用法以及使用场景。</p>
+<h3 id="工具型应用"><a href="#工具型应用" class="headerlink" title="工具型应用"></a>工具型应用</h3><p>工具型应用: 如果应用是命令行应用，程序启动后，在一段时间(短期运行)内会随着处理完成而关闭。</p>
+<p>工具型应用使用使用 <code>runtime/pprof</code> 库， 可以产生 dump 文件，应用退出的时候把 profiling 的报告保存到文件中，进行分析。</p>
+<p>将  <code>runtime/pprof</code> 导入 main.go </p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">"runtime/pprof"</span></span><br></pre></td></tr></table></figure>
+
+<p>其中 <code>pprof</code> 封装了很好的接口供我们使用，比如要想进行 CPU Profiling，可以调用 pprof.<code>StartCPUProfile()</code> 方法，它会对当前应用程序进行 CPU profiling，并写入到提供的参数中<code>(w io.Writer)</code>，要停止调用 <code>StopCPUProfile()</code> 即可。</p>
+<p>去除错误处理只需要以下内容，一般把部分内容写在 main.go 文件中，应用程序启动之后就开始执行：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">f, err := os.Create(*cpuprofile)</span><br><span class="line">...</span><br><span class="line">pprof.StartCPUProfile(f)</span><br><span class="line"><span class="keyword">defer</span> pprof.StopCPUProfile()</span><br></pre></td></tr></table></figure>
+
+<p>应用执行结束后，就会生成一个文件，保存了我们的 CPU profiling 数据。</p>
+<p>想要获得内存的数据，直接使用 WriteHeapProfile 就行，不用 start 和 stop 这两个步骤了：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">f, err := os.Create(*memprofile)</span><br><span class="line">pprof.WriteHeapProfile(f)</span><br><span class="line">f.Close()</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="服务型应用"><a href="#服务型应用" class="headerlink" title="服务型应用"></a>服务型应用</h3><p>服务型应用: 如果应用是一直运行(长期运行)的，比如 web 应用，那么可以使用 <code>net/http/pprof</code> 库，它能够在提供 HTTP 服务进行分析。</p>
+<p>服务型应用使用 <code>net/http/pprof</code> 库， 其中 <code>net/http/pprof</code> 使用 <code>runtime/pprof</code> 包来进行封装，并在 http 端口上暴露出来。</p>
+<p>如果使用了默认的 <code>http.DefaultServeMux</code>（通常是代码直接使用 <code>http.ListenAndServe(&quot;0.0.0.0:8000&quot;, nil)</code>），只需要添加一行：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> _ <span class="string">"net/http/pprof"</span></span><br></pre></td></tr></table></figure>
+
+<p>如果应用使用了自定义的 <code>Mux</code>，则需要手动注册一些路由规则：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">r.HandleFunc(<span class="string">"/debug/pprof/"</span>, pprof.Index)</span><br><span class="line">r.HandleFunc(<span class="string">"/debug/pprof/cmdline"</span>, pprof.Cmdline)</span><br><span class="line">r.HandleFunc(<span class="string">"/debug/pprof/profile"</span>, pprof.Profile)</span><br><span class="line">r.HandleFunc(<span class="string">"/debug/pprof/symbol"</span>, pprof.Symbol)</span><br><span class="line">r.HandleFunc(<span class="string">"/debug/pprof/trace"</span>, pprof.Trace)</span><br></pre></td></tr></table></figure>
+
+<p>服务起来之后，就会多多一条路由，如 <code>http://127.0.0.1:8000/debug/pprof</code> ，有以下输出</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">/debug/pprof/</span><br><span class="line"> </span><br><span class="line">profiles:</span><br><span class="line">0    block</span><br><span class="line">62    goroutine</span><br><span class="line">444    heap</span><br><span class="line">30    threadcreate</span><br><span class="line"> </span><br><span class="line">full goroutine stack dump</span><br></pre></td></tr></table></figure>
+
+<p>这个路径下还有几个子页面：</p>
+<p><code>/debug/pprof/profile</code>：访问这个链接会自动进行 CPU profiling，持续 30s，并生成一个文件供下载<br><code>/debug/pprof/heap</code>： Memory Profiling 的路径，访问这个链接会得到一个内存 Profiling 结果的文件<br><code>/debug/pprof/block</code>：block Profiling 的路径</p>
+<h2 id="获取和分析-Profiling-数据"><a href="#获取和分析-Profiling-数据" class="headerlink" title="获取和分析 Profiling 数据"></a>获取和分析 Profiling 数据</h2><div class="note info">
+            <p>获取的 Profiling 数据是动态的，要想获得有效的数据，请保证应用处于较大的负载（比如正在生成中运行的服务，或者通过其他工具模拟访问压力）。否则如果应用处于空闲状态，得到的结果可能没有任何意义。 </p>
+          </div>
+
+<p>能通过对应的库获取想要的 Profiling 数据之后（不管是文件还是 http），下一步就是要对这些数据进行保存和分析，我们可以使用 <code>go tool pprof</code> 命令行工具。</p>
+<ul>
+<li><code>/debug/pprof/profile</code></li>
+<li><code>/debug/pprof/heap</code></li>
+<li><code>/debug/pprof/block</code></li>
+<li><code>/debug/pprof/goroutines</code></li>
+</ul>
+<p>go tool pprof 工具可以对以上各个路径 prof 文件进行更详细的分析，可以生成调用关系图和火焰图。</p>
+<h3 id="生成调用关系图"><a href="#生成调用关系图" class="headerlink" title="生成调用关系图"></a>生成调用关系图</h3><ul>
+<li>安装 graphviz 工具</li>
+<li>分析工具使用命令 go tool pprof [binary][source]</li>
+<li>生成关系调用图</li>
+</ul>
+<ol>
+<li><p>安装 graphviz 工具</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Centos 6/7</span></span><br><span class="line"><span class="comment"># yum install -y graphviz</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Centos 8</span></span><br><span class="line"><span class="comment"># dnf install -y graphviz</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>分析工具使用命令 go tool pprof</p>
+<pre><code class="bash">go tool pprof demo demo.prof
+(pprof) web  <span class="comment">#生成调用关系图，demo.svg文件</span></code></pre>
+</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"><i class="fa fa-tag"></i> Go</a>
+              <a href="/tags/%E8%B0%83%E8%AF%95/" rel="tag"><i class="fa fa-tag"></i> 调试</a>
+              <a href="/tags/pprof/" rel="tag"><i class="fa fa-tag"></i> pprof</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/05/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/go-micro-005/" rel="prev" title="M3O - 如何开启 debugging 调试">
+      <i class="fa fa-chevron-left"></i> M3O - 如何开启 debugging 调试
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/12/%E6%9E%B6%E6%9E%84/%E5%BE%AE%E6%9C%8D%E5%8A%A1/go-micro/go-micro-006/" rel="next" title="M3O - 运行时工具 micro api">
+      M3O - 运行时工具 micro api <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Golang-服务主要关注的应用运行情况包含以下几种"><span class="nav-number">1.</span> <span class="nav-text">Golang 服务主要关注的应用运行情况包含以下几种</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#两种使用方式"><span class="nav-number">2.</span> <span class="nav-text">两种使用方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#工具型应用"><span class="nav-number">2.1.</span> <span class="nav-text">工具型应用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#服务型应用"><span class="nav-number">2.2.</span> <span class="nav-text">服务型应用</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#获取和分析-Profiling-数据"><span class="nav-number">3.</span> <span class="nav-text">获取和分析 Profiling 数据</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#生成调用关系图"><span class="nav-number">3.1.</span> <span class="nav-text">生成调用关系图</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Eter"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Eter</p>
+  <div class="site-description" itemprop="description">但行好事 莫问前程</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/" title="GitHub → https:&#x2F;&#x2F;github.com"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://golang.org/doc/effective_go.html" title="https:&#x2F;&#x2F;golang.org&#x2F;doc&#x2F;effective_go.html" rel="noopener" target="_blank">Effective Go</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.golang.org/profiling-go-programs" title="https:&#x2F;&#x2F;blog.golang.org&#x2F;profiling-go-programs" rel="noopener" target="_blank">Profiling Go Programs</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://doc.rust-lang.org/book/" title="https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;book&#x2F;" rel="noopener" target="_blank">The Rust Programming Language</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://csoulsi.github.io/" title="https:&#x2F;&#x2F;csoulsi.github.io" rel="noopener" target="_blank">csoulsi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://schnappi618.github.io/" title="https:&#x2F;&#x2F;schnappi618.github.io&#x2F;" rel="noopener" target="_blank">schnappi618</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+      
+        <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+        <div class="widget-wrap">
+          <h3 class="widget-title">Tag Cloud</h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+            <canvas width="250" height="250" id="resCanvas" style="width:100%">
+              <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/CPP/" rel="tag">CPP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cassandra/" rel="tag">Cassandra</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/" rel="tag">Go</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go-Micro/" rel="tag">Go Micro</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Grafana/" rel="tag">Grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NoSQL/" rel="tag">NoSQL</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Prometheus/" rel="tag">Prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLA/" rel="tag">SLA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLI/" rel="tag">SLI</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLO/" rel="tag">SLO</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Smart-Pointers/" rel="tag">Smart Pointers</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiDB/" rel="tag">TiDB</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiKV/" rel="tag">TiKV</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nightingale/" rel="tag">nightingale</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/pprof/" rel="tag">pprof</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%86%85%E5%AD%98/" rel="tag">内存</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%AF%E9%9D%A0%E6%80%A7/" rel="tag">可靠性</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E7%A8%8B/" rel="tag">编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E8%AF%91/" rel="tag">编译</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B0%83%E8%AF%95/" rel="tag">调试</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%93%BE%E6%8E%A5/" rel="tag">链接</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li></ul>
+            </canvas>
+          </div>
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heartbeat"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">HulkLab</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">62k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">56 分钟</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+<script src="/js/bookmark.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

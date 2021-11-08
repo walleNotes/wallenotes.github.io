@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="XPII_t91-eBghgHpuxic4lhWHlvlxojKoB_lrpfuTwk">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"github.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":"ture"},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":true},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="从存储器到内存映射布局">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从存储器到内存映射布局">
+<meta property="og:url" content="https://github.com/walleNotes/wallenotes.github.io.git/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/index.html">
+<meta property="og:site_name" content="walle&#39;s Notes">
+<meta property="og:description" content="从存储器到内存映射布局">
+<meta property="og:image" content="https://github.com/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/os_abstract.png">
+<meta property="og:image" content="https://github.com/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/memory_en.png">
+<meta property="og:image" content="https://github.com/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/system-physical-memory.png">
+<meta property="og:image" content="https://github.com/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/linux-process-memory.png">
+<meta property="article:published_time" content="2018-01-04T08:14:20.000Z">
+<meta property="article:modified_time" content="2021-10-11T04:25:00.965Z">
+<meta property="article:author" content="Eter">
+<meta property="article:tag" content="内存">
+<meta property="article:tag" content="Linux">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://github.com/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/os_abstract.png">
+
+<link rel="canonical" href="https://github.com/walleNotes/wallenotes.github.io.git/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>从存储器到内存映射布局 | walle's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">walle's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Quick notes</p>
+  </div>
+
+  <div class="site-nav-right"></div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">27</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">19</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">20</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://github.com/walleNotes/wallenotes.github.io.git/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Eter">
+      <meta itemprop="description" content="但行好事 莫问前程">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="walle's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从存储器到内存映射布局
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-01-04 16:14:20" itemprop="dateCreated datePublished" datetime="2018-01-04T16:14:20+08:00">2018-01-04</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Linux/" itemprop="url" rel="index">
+                    <span itemprop="name">Linux</span>
+                  </a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Linux/%E5%86%85%E5%AD%98/" itemprop="url" rel="index">
+                    <span itemprop="name">内存</span>
+                  </a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.7k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>5 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote class="blockquote-center"><p>从存储器到内存映射布局 </p>
+</blockquote>
+
+<a id="more"></a>
+
+<p>在日常工作中，经常会有同学提出这样的问题，</p>
+<ul>
+<li>“我的程序运行时究竟占用了多大的内存?”</li>
+<li>“我的程序占用的虚拟内存非常大，这个正常么?”</li>
+</ul>
+<div class="note info">
+            <p>本文主要从以下几个方向，深入浅出的说明内存的基本布局，后续会更新内存的管理的文章。</p><ul><li>计算机体系结构</li><li>存储器缓存策略</li><li>虚拟内存</li><li>虚拟地址</li><li>进程的内存划分方案</li></ul>
+          </div>
+
+<h2 id="计算机体系结构"><a href="#计算机体系结构" class="headerlink" title="计算机体系结构"></a>计算机体系结构</h2><p>计算机技术领域的变化日新月异，集成电路技术带来的元件不仅种类繁多，而且在功能方面还在不断改进增强。按照摩尔定律，集成电路上可容纳的晶体管数目大约每两年便会增加一倍。而与晶体管数据量密切相关的处理能力也将提升一倍。</p>
+<p>经验告诉我们，想要应对这种快速的变化，就是在经常变动的实现层次之上，利用抽象和泛华的方法为计算机系统定义全局目标和结构体系。这种方法的核心在于描述抽象的方式，该方式要确保在去除相对无关的实现细节后，任何新的实现与核心定义都能保持一致。</p>
+<p>整个计算机体系结构可用下图表示:</p>
+<img src="/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/os_abstract.png" class="">
+
+<p>在计算机系统中，有一些和存储器相关的趣事：</p>
+<ul>
+<li>人们对存储器容量总是无法满足，而且存储器容量总是供不应求。</li>
+<li>存储器技术似乎是导致处理器性能障碍的主要原因<br>– 这种被称为”处理器和存储器之间的速度鸿沟(The processor-memory gap)”</li>
+<li>存储器的访问能力与其存储容量成反比。</li>
+</ul>
+<h2 id="存储器缓存策略"><a href="#存储器缓存策略" class="headerlink" title="存储器缓存策略"></a>存储器缓存策略</h2><p>我们从程序员、设计师和工程师的角度，我们希望系统能够以最快的速度访问所有可用存储器。<br>但是这个基本上是不可能的，实际上系统并不是使用所有的存储器，而是仅仅是在某些时段内使用某一部分存储器。这个情况下，只需要为程序预留相对最快的存储器，而让那些并非立即执行的代码或者数据使用相对较慢的存储器。当CPU立即需要执行指令时，在执行到存储在较慢的存储器上的代码之前，这些代码会转存在较快的存储器中，这种策略称为”缓存”。</p>
+<p>缓存策略无处不在，横跨多个级别的存储器，如下图所示：</p>
+<img src="/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/memory_en.png" class="">
+
+<h2 id="虚拟内存"><a href="#虚拟内存" class="headerlink" title="虚拟内存"></a>虚拟内存</h2><p>我们用名为”进程”的抽象概念来表示正在运行的程序。现在多任务操作系统的设计允许一个或者多个用户并发地运行多个程序，对于一个普通用户来说，同时运行多个应用程序（比如听歌、看网页、编辑文档）在正常不过了。</p>
+<p>通过虚拟内存的概念，可以很好的解决内存需求与有限的内存容量之间的矛盾，运行时的物理内存会被划分成数个小的分段（页），每个页都可以用来同步执行程序。正在运行的程序的完整内存布局会被保存在低速存储器（磁盘）中。只有那些当前即将被执行的一部分内存（代码和数据）才会被加载到物理内存页中。</p>
+<p>首先需要强调的是虚拟内存不同于物理内存，二者属于不同层面的东西。<br>进程占用虚拟内存空间大并非意味着程序的物理内存也一定占用很大。虚拟内存是操作系统内核为了对进程地址空间进行管理(process address space management)而设计的一个逻辑意义上的内存空间概念，我们程序中的指针其实都是这个虚拟内存空间中的地址。</p>
+<div class="note info">
+            <p><strong>虚拟地址</strong>(virtual address):</p><ul><li>CPU启动保护模式后，程序运行在虚拟地址空间中。</li><li>注意，并不是所有的“程序”都是运行在虚拟地址中。 </li><li>CPU在启动的时候是运行在实模式的，Bootloader以及内核在初始化页表之前并不使用虚拟地址，而是直接使用物理地址的。</li><li>虚拟地址范围：编程模型假定地址空间的范围在0到$2^N$，其中N是32或者64。</li></ul>
+          </div>
+
+
+<p>比如我们写完一个C/C++项目之后，采用gcc/g++进行编译，这个时候编译器采用的地址其实就是虚拟内存空间的地址。因为这时程序都没有开始运行，所以何谈物理内存空间地址？</p>
+<p>凡是程序运行过程中可能需要用到的指令或者数据都必须在虚拟内存空间中。既然说虚拟内存是一个逻辑意义上(逻辑存在)的内存空间，为了能够让程序在物理机器上运行起来，那就需要有一套机制可以让这些虚拟内存空间映射到物理内存空间(真实内存条上的空间)。</p>
+<p>在Linux中，解决这个问题的关键是一个叫做 page table (PT页面转换表) 的结构。Linux把物理内存分为了固定统一大小的块，称为page(页)，一般为4KB，并且每个页都有一个编号”page frame number”。这样一个512M大小的内存将包括128K个页。这种方式称为paging，使得操作系统对内存的管理更方便。page table的作用就是将进程操作的地址(虚拟地址)转换成物理地址。</p>
+<p>关于 page table 内容原理，可以参考以下文章。</p>
+<div class="note info">
+            <p>Linux Page Tables ： <a href="http://www.linux-tutorial.info/modules.php?name=MContent&amp;pageid=307" target="_blank" rel="noopener">www.linux-tutorial.info/modules.php?name=MContent&amp;pageid=307</a></p>
+          </div>
+
+<p>内核会为系统中每一个进程维护一份相互独立的页映射表，页映射表的基本原理是将程序运行过程中需要访问的一段虚拟内存空间通过页映射表映射到一段物理内存空间上，这样CPU访问对应虚拟内存地址的时候就可以通过这种查找页映射表的机制访问物理内存上的某个对应的地址。</p>
+<p>“页(page)”是虚拟内存空间向物理内存空间映射的基本单元。</p>
+<p>虚拟内存的概念如下图所示：</p>
+<img src="/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/system-physical-memory.png" class="" title="图3 虚拟内存空间到物理内存空间的映射">
+
+<p>上图演示了虚拟内存空间和物理内存空间的相互关系。它们通过Page Table关联起来。</p>
+<p>其中虚拟内存空间中着色部分分别被映射到了物理内存空间对应相同的着色的部分。而虚拟内存空间中灰色的部分表示在物理内存空间中没有与之对应的部分，也就是说灰色部分没有被映射到物理内存空间中。因为虚拟内存空间很大，可能其中很多部分在一次程序运行中根本不需要访问，所以也就没有必要讲虚拟内存空间中的这些部分映射到物理内存空间上。</p>
+<p>那么，总结一下，虚拟内存就是一个逻辑存在的内存空间，在程序运行过程中虚拟内存空间中需要被访问的部分会被映射到物理内存空间。虚拟内存空间大只能表示程序运行过程中可访问的空间比较大，不代表物理内存空间占用也大。</p>
+<h3 id="驻留内存"><a href="#驻留内存" class="headerlink" title="驻留内存"></a>驻留内存</h3><p>顾名思义是指那些被映射到进程虚拟内存空间的物理内存。上图3中，在系统物理内存空间中被着色的部分都是驻留内存。</p>
+<p>比如，A1、A2、A3和A4是进程A的驻留内存；B1、B2和B3是进程B的驻留内存。</p>
+<p>进程的驻留内存就是进程实实在在占用的物理内存。一般我们所讲的进程占用了多少内存，其实就是说的占用了多少驻留内存而不是多少虚拟内存。因为虚拟内存大并不意味着占用的物理内存大。</p>
+<div class="note info">
+            <p>以下为具体示例：</p>
+          </div>
+
+<p>操作系统：Linux（Redhat 7.4）</p>
+<h3 id="内存信息"><a href="#内存信息" class="headerlink" title="内存信息"></a>内存信息</h3><figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root(jihaodong)@redhat work]<span class="comment"># free</span></span><br><span class="line">              total        used        free      shared  buff/cache   available</span><br><span class="line">Mem:      131455940    54627048    12895764      178028    63933128    76268692</span><br><span class="line">Swap:      32767996      134996    32633000</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th align="center">Key</th>
+<th align="left">Desc</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">Mem.total</td>
+<td align="left">物理内存的总量</td>
+</tr>
+<tr>
+<td align="center">Mem.used</td>
+<td align="left">使用的物理内存的总量</td>
+</tr>
+<tr>
+<td align="center">Mem.free</td>
+<td align="left">空闲内存总量</td>
+</tr>
+<tr>
+<td align="center">Mem.shared</td>
+<td align="left">共享内存</td>
+</tr>
+<tr>
+<td align="center">Mem.buff</td>
+<td align="left">内核缓冲区使用的内存</td>
+</tr>
+<tr>
+<td align="center">Mem.cache</td>
+<td align="left">页面缓存和Slab分配器使用的内存</td>
+</tr>
+<tr>
+<td align="center">Mem.available</td>
+<td align="left">系统空闲内存 Mem.available = Mem.free + Mem.buff + Mem.cache</td>
+</tr>
+<tr>
+<td align="center">Swap.total</td>
+<td align="left">交换分区总大小，系统物理内存不够用时，与swap进行交换</td>
+</tr>
+<tr>
+<td align="center">Swap.used</td>
+<td align="left">已经被使用的交换分区大小</td>
+</tr>
+<tr>
+<td align="center">Swap.free</td>
+<td align="left">未被使用的交换分区大小</td>
+</tr>
+</tbody></table>
+<h3 id="进程的TOP信息："><a href="#进程的TOP信息：" class="headerlink" title="进程的TOP信息："></a>进程的TOP信息：</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">[root(jihaodong)@redhat work]<span class="comment"># top -d 1 </span></span><br><span class="line">top - 14:30:32 up 28 days,  2:25,  1 user,  load average: 0.22, 0.31, 0.25</span><br><span class="line">Tasks: 398 total,   1 running, 397 sleeping,   0 stopped,   0 zombie</span><br><span class="line">%Cpu(s):  3.5 us,  0.3 sy,  0.0 ni, 96.2 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st</span><br><span class="line">KiB Mem : 13145593+total, 12901476 free, 54629708 used, 63924756 buff/cache</span><br><span class="line">KiB Swap: 32767996 total, 32632996 free,   135000 used. 76267056 avail Mem </span><br><span class="line">  scroll coordinates: y = 1/398 (tasks), x = 1/12 (fields)</span><br><span class="line">  PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND                                                            </span><br><span class="line"> 5746 elastic+  20   0  0.233t 0.060t 0.011t S 100.0 48.8   7155:16 /opt/soft/jdk/jdk1.8.0_66/bin/java -Xms48g -Xmx48g -XX:+UseConcMa+ </span><br><span class="line">31299 root      20   0 4283448 305600   2368 S   0.0  0.2  51:26.88 java -XX:PermSize=128m -XX:MaxPermSize=256m -Xms512m -Xmx512m -cp+ </span><br><span class="line"> 7104 elastic+  20   0 1277408  99848   6260 S   0.0  0.1  93:41.92 ./bin/../node/bin/node --no-warnings ./bin/../src/cli              </span><br><span class="line">18809 root      20   0 2921264  47312   4168 S  10.0  0.0 294:00.58 /usr/<span class="built_in">local</span>/bin/xcdc run s1.js                                      </span><br><span class="line">18811 root      20   0 2663044  45584   4124 S   5.0  0.0 286:10.11 /usr/<span class="built_in">local</span>/bin/xcdc run s3.js                                      </span><br><span class="line">18810 root      20   0 2724032  45428   3980 S   5.0  0.0 298:59.47 /usr/<span class="built_in">local</span>/bin/xcdc run s2.js                                      </span><br><span class="line">18813 root      20   0 2930092  44012   4116 S   5.0  0.0 288:44.38 /usr/<span class="built_in">local</span>/bin/xcdc run s5.js                                      </span><br><span class="line">18812 root      20   0 2924452  43312   4024 S   0.0  0.0 291:19.32 /usr/<span class="built_in">local</span>/bin/xcdc run s4.js                                      </span><br><span class="line">10189 root      20   0 2350900  29800   2444 S   0.0  0.0  38:41.39 ./falcon-agent -c cfg.json</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th align="center">Key</th>
+<th align="left">Desc</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">PID</td>
+<td align="left">进程ID</td>
+</tr>
+<tr>
+<td align="center">PPID</td>
+<td align="left">父进程ID</td>
+</tr>
+<tr>
+<td align="center">UID</td>
+<td align="left">进程所有者的用户ID</td>
+</tr>
+<tr>
+<td align="center">USER</td>
+<td align="left">进程所有者的用户名</td>
+</tr>
+<tr>
+<td align="center">PR</td>
+<td align="left">优先级</td>
+</tr>
+<tr>
+<td align="center">NI</td>
+<td align="left">NICE值，负值表示搞优先级，正值表示优先级底</td>
+</tr>
+<tr>
+<td align="center">VIRT</td>
+<td align="left">进程所用的虚拟内存总量， VIRT = SWAP + RES</td>
+</tr>
+<tr>
+<td align="center">SWAP</td>
+<td align="left">进程使用的虚拟内存中，被置换出去的大小</td>
+</tr>
+<tr>
+<td align="center">RES</td>
+<td align="left">进程使用的，未被置换出去的物理内存，（目前占用物理内存的值）</td>
+</tr>
+<tr>
+<td align="center">SHR</td>
+<td align="left">共享内存大小</td>
+</tr>
+</tbody></table>
+<p>搞清楚了虚拟内存的概念之后解释VIRT就很简单了，VIRT表示虚拟内存空间大小结合图1(计算机体系结构抽象），对应到图3(虚拟内存空间到物理内存空间的映射）中来说就是A1、A2、A3、A4以及灰色部分所有空间的总和。也就是说虚拟包含了在已经映射到物理内存空间的部分和尚未映射到物理内存空间的部分的总和。</p>
+<p>RES的含义是指进程虚拟内存空间中已经映射到物理内存空间的那部分的大小。对应到图1中的进程A来说就是A1、A2、A3以及A4几个部分空间的总和。所以说，看进程在运行过程中占用了多少内存应该看RES的值而不是VIRT的值。</p>
+<p>最后来看看SHR所表示的含义。SHR是share（共享）的缩写，它表示的是进程占用的共享内存大小。在上图1中我们看到进程A虚拟内存空间中的A4和进程B虚拟内存空间中的B3都映射到了物理内存空间的A4/B3部分。咋一看很奇怪。为什么会出现这样的情况呢？其实我们写的程序会依赖于很多外部的动态库（.so），比如libc.so、libld.so等等。这些动态库在内存中仅仅会保存/映射一份，如果某个进程运行时需要这个动态库，那么动态加载器会将这块内存映射到对应进程的虚拟内存空间中。多个进展之间通过共享内存的方式相互通信也会出现这样的情况。这么一来，就会出现不同进程的虚拟内存空间会映射到相同的物理内存空间。这部分物理内存空间其实是被多个进程所共享的，所以我们将他们称为共享内存，用SHR来表示。某个进程占用的内存除了和别的进程共享的内存之外就是自己的独占内存了。所以要计算进程独占内存的大小只要用RES的值减去SHR值即可。</p>
+<p>这片文章主要简单讲解Linux下进程的内存映射布局。</p>
+<p>内存管理是操作系统的核心; 这对于编程和系统管理都至关重要。</p>
+<h2 id="进程的内存划分方案"><a href="#进程的内存划分方案" class="headerlink" title="进程的内存划分方案"></a>进程的内存划分方案</h2><p>本节主要讨论进程内存映射的内部组织细节，我们假定的程序地址空间的范围在0到$2^N$，其中N是32或者64。</p>
+<p>不同的多任务或者多用户操作系统拥有不同的内存映射布局。对于Linux进程的虚拟内存映射来说，其遵循图4所示的映射方案。</p>
+<img src="/2018/01/04/Linux/%E5%86%85%E5%AD%98/memory-standard-segment-layout/linux-process-memory.png" class="" title="图3 虚拟内存空间到物理内存空间的映射">
+
+<p>无论平台的进程内存划分方案多么特殊，下面几个内存映射的节(section)都是必须支持的:</p>
+<ul>
+<li>代码节：该段包含了供CPU执行的机器码指令(.text节)。</li>
+<li>数据节：该段包含了供CPU操作的数据。通常来说，初始化数据(.data节)、为初始化数据(.bss节)和只读数据(.rdata节)会保存在分离的节中。</li>
+<li>堆：动态内存分配的区域。</li>
+<li>栈：为各个函数提供了独立的存储空间。</li>
+<li>最上层部分属于内核区域，特定进程的环境变量就存放在该区域。</li>
+</ul>
+<h2 id="二进制文件、编译器、连接器与装载器的作用"><a href="#二进制文件、编译器、连接器与装载器的作用" class="headerlink" title="二进制文件、编译器、连接器与装载器的作用"></a>二进制文件、编译器、连接器与装载器的作用</h2><p>粗略地讲：</p>
+<ul>
+<li>程序的二进制文件中包含了程序运行过程中的内存映射布局的细节。</li>
+<li>链接器创建了二进制文件的整体框架。要实现这项功能，链接器要对编译器生成的二进制文件进行合并，然后想各个内存映射节填充信息(代码和数据等信息)。</li>
+<li>进程内存映射的初始化建立工作是由程序装载器这一系统工具完成的。在最简单的情况下，装载器会打开二进制可执行文件，读取节的相关信息，然后将这些信息载入进程内存映射结构中。</li>
+</ul>
+<p>所有现代操作系统都是按照这种角色分离的方式设计的。</p>
+<p>需要注意的是，以上描述是一个粗略地描述。</p>
+<h2 id="文章参考"><a href="#文章参考" class="headerlink" title="文章参考:"></a>文章参考:</h2><figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[1]: 探索 Linux 内存模型： https://www.ibm.com/developerworks/cn/linux/l-memmod/</span><br><span class="line">[2]: 理解VIRT/RES/SHR之间的关系: http://orchome.com/298</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E5%86%85%E5%AD%98/" rel="tag"><i class="fa fa-tag"></i> 内存</a>
+              <a href="/tags/Linux/" rel="tag"><i class="fa fa-tag"></i> Linux</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/01/01/%E7%BC%96%E7%A8%8B/CPP/cpp_smart_ptr/" rel="prev" title="CPP使用Smart Pointer">
+      <i class="fa fa-chevron-left"></i> CPP使用Smart Pointer
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/01/08/%E7%BC%96%E7%A8%8B/%E7%BC%96%E8%AF%91/compile-and-link/" rel="next" title="编译和链接">
+      编译和链接 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#计算机体系结构"><span class="nav-number">1.</span> <span class="nav-text">计算机体系结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#存储器缓存策略"><span class="nav-number">2.</span> <span class="nav-text">存储器缓存策略</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#虚拟内存"><span class="nav-number">3.</span> <span class="nav-text">虚拟内存</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#驻留内存"><span class="nav-number">3.1.</span> <span class="nav-text">驻留内存</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#内存信息"><span class="nav-number">3.2.</span> <span class="nav-text">内存信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#进程的TOP信息："><span class="nav-number">3.3.</span> <span class="nav-text">进程的TOP信息：</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#进程的内存划分方案"><span class="nav-number">4.</span> <span class="nav-text">进程的内存划分方案</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#二进制文件、编译器、连接器与装载器的作用"><span class="nav-number">5.</span> <span class="nav-text">二进制文件、编译器、连接器与装载器的作用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#文章参考"><span class="nav-number">6.</span> <span class="nav-text">文章参考:</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Eter"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Eter</p>
+  <div class="site-description" itemprop="description">但行好事 莫问前程</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/" title="GitHub → https:&#x2F;&#x2F;github.com"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://golang.org/doc/effective_go.html" title="https:&#x2F;&#x2F;golang.org&#x2F;doc&#x2F;effective_go.html" rel="noopener" target="_blank">Effective Go</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.golang.org/profiling-go-programs" title="https:&#x2F;&#x2F;blog.golang.org&#x2F;profiling-go-programs" rel="noopener" target="_blank">Profiling Go Programs</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://doc.rust-lang.org/book/" title="https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;book&#x2F;" rel="noopener" target="_blank">The Rust Programming Language</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://csoulsi.github.io/" title="https:&#x2F;&#x2F;csoulsi.github.io" rel="noopener" target="_blank">csoulsi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://schnappi618.github.io/" title="https:&#x2F;&#x2F;schnappi618.github.io&#x2F;" rel="noopener" target="_blank">schnappi618</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+      
+        <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+        <div class="widget-wrap">
+          <h3 class="widget-title">Tag Cloud</h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+            <canvas width="250" height="250" id="resCanvas" style="width:100%">
+              <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/CPP/" rel="tag">CPP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cassandra/" rel="tag">Cassandra</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/" rel="tag">Go</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go-Micro/" rel="tag">Go Micro</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Grafana/" rel="tag">Grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NoSQL/" rel="tag">NoSQL</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Prometheus/" rel="tag">Prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLA/" rel="tag">SLA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLI/" rel="tag">SLI</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLO/" rel="tag">SLO</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Smart-Pointers/" rel="tag">Smart Pointers</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiDB/" rel="tag">TiDB</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiKV/" rel="tag">TiKV</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nightingale/" rel="tag">nightingale</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/pprof/" rel="tag">pprof</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%86%85%E5%AD%98/" rel="tag">内存</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%AF%E9%9D%A0%E6%80%A7/" rel="tag">可靠性</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E7%A8%8B/" rel="tag">编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E8%AF%91/" rel="tag">编译</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B0%83%E8%AF%95/" rel="tag">调试</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%93%BE%E6%8E%A5/" rel="tag">链接</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li></ul>
+            </canvas>
+          </div>
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heartbeat"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">HulkLab</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">62k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">56 分钟</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+<script src="/js/bookmark.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

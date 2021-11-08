@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="XPII_t91-eBghgHpuxic4lhWHlvlxojKoB_lrpfuTwk">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"github.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":"ture"},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":true},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="如何部署一套线上 Cassandra 集群">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Cassandra 集群部署">
+<meta property="og:url" content="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/15/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-002/index.html">
+<meta property="og:site_name" content="walle&#39;s Notes">
+<meta property="og:description" content="如何部署一套线上 Cassandra 集群">
+<meta property="article:published_time" content="2020-04-15T07:23:12.000Z">
+<meta property="article:modified_time" content="2021-10-11T04:25:00.968Z">
+<meta property="article:author" content="Eter">
+<meta property="article:tag" content="Cassandra">
+<meta property="article:tag" content="NoSQL">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/15/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-002/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>Cassandra 集群部署 | walle's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">walle's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">Quick notes</p>
+  </div>
+
+  <div class="site-nav-right"></div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">27</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">19</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">20</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://github.com/walleNotes/wallenotes.github.io.git/2020/04/15/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-002/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Eter">
+      <meta itemprop="description" content="但行好事 莫问前程">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="walle's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Cassandra 集群部署
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-15 15:23:12" itemprop="dateCreated datePublished" datetime="2020-04-15T15:23:12+08:00">2020-04-15</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" itemprop="url" rel="index">
+                    <span itemprop="name">数据库</span>
+                  </a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/" itemprop="url" rel="index">
+                    <span itemprop="name">Cassandra</span>
+                  </a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.6k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>5 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote class="blockquote-center"><p>如何部署一套线上 Cassandra 集群</p>
+</blockquote>
+
+<a id="more"></a>
+
+<p>本文主要讲解 Cassandra 3.11.6 集群的安装部署过程， 分为以下几个步骤： </p>
+<ul>
+<li>准备安装包</li>
+<li>基础环境安装</li>
+<li>配置集群节点</li>
+<li>集群部署</li>
+<li><code>nodetool</code> 工具使用</li>
+</ul>
+<h1 id="准备安装包"><a href="#准备安装包" class="headerlink" title="准备安装包"></a>准备安装包</h1><ul>
+<li><a href="https://www.oracle.com/cn/java/technologies/javase-jdk8-downloads.html" target="_blank" rel="noopener">JDK1.8 下载</a></li>
+<li><a href="https://mirrors.tuna.tsinghua.edu.cn/apache/cassandra/3.11.6/apache-cassandra-3.11.6-bin.tar.gz" target="_blank" rel="noopener">Cassandra 3.11.6下载</a></li>
+<li>python 环境(python2.7及以上, 建议 python 3.7)</li>
+</ul>
+<h1 id="基础环境安装"><a href="#基础环境安装" class="headerlink" title="基础环境安装"></a>基础环境安装</h1><h2 id="项目路径-示例地址-work-cassandra"><a href="#项目路径-示例地址-work-cassandra" class="headerlink" title="项目路径 (示例地址: /work/cassandra )"></a>项目路径 (示例地址: /work/cassandra )</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># mkdir /work/cassandra</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="安装-JDK1-8-以-jdk1-8-0-191-为例"><a href="#安装-JDK1-8-以-jdk1-8-0-191-为例" class="headerlink" title="安装 JDK1.8 (以 jdk1.8.0_191 为例)"></a>安装 <code>JDK1.8</code> (以 jdk1.8.0_191 为例)</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># echo $&#123;JAVA_HOME&#125;</span></span><br><span class="line">/opt/soft/jdk/jdk1.8.0_191</span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># java -version</span></span><br><span class="line">java version <span class="string">"1.8.0_191"</span></span><br><span class="line">Java(TM) SE Runtime Environment (build 1.8.0_191-b12)</span><br><span class="line">Java HotSpot(TM) 64-Bit Server VM (build 25.191-b12, mixed mode)</span><br></pre></td></tr></table></figure>
+
+<h2 id="检查-python-环境"><a href="#检查-python-环境" class="headerlink" title="检查 python 环境"></a>检查 python 环境</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># python --version</span></span><br><span class="line">Python <span class="number">2.7</span><span class="number">.14</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="解压缩-Cassandra-安装包"><a href="#解压缩-Cassandra-安装包" class="headerlink" title="解压缩 Cassandra 安装包"></a>解压缩 Cassandra 安装包</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># tar xf apache-cassandra-3.11.1-bin.tar.gz</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># mv apache-cassandra-3.11.6/* /work/cassandra</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># pwd</span></span><br><span class="line">/work/cassandra</span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># ls</span></span><br><span class="line">bin conf doc interface javadoc lib pylib tools</span><br></pre></td></tr></table></figure>
+
+<h1 id="配置集群节点"><a href="#配置集群节点" class="headerlink" title="配置集群节点"></a>配置集群节点</h1><h2 id="Cassandra-基础环境配置"><a href="#Cassandra-基础环境配置" class="headerlink" title="Cassandra 基础环境配置"></a>Cassandra 基础环境配置</h2><h3 id="添加-cassandra-用户"><a href="#添加-cassandra-用户" class="headerlink" title="添加 cassandra 用户"></a>添加 cassandra 用户</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 解除账号锁定</span></span><br><span class="line"><span class="comment"># chattr -i /etc/passwd;chattr -i /etc/shadow;chattr -i /etc/group;chattr -i /etc/gshadow</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># useradd cassandra</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># id cassandra</span></span><br><span class="line">uid=1008(cassandra) gid=1008(cassandra) groups=1008(cassandra)</span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># 添加账号锁定</span></span><br><span class="line"><span class="comment"># chattr +i /etc/passwd;chattr +i /etc/shadow;chattr +i /etc/group;chattr +i /etc/gshadow</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="添加环境变量"><a href="#添加环境变量" class="headerlink" title="添加环境变量"></a>添加环境变量</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># vim /etc/profile.d/cassandra.sh</span></span><br><span class="line"><span class="comment"># 写入以下内容保存</span></span><br><span class="line"><span class="built_in">export</span> CASSANDRA_HOME=/work/cassandra</span><br><span class="line"><span class="built_in">export</span> PATH=<span class="variable">$PATH</span>:<span class="variable">$CASSANDRA_HOME</span>/bin</span><br><span class="line"><span class="comment"># . /etc/profile</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="创建-Cassandra-数据目录、日志目录"><a href="#创建-Cassandra-数据目录、日志目录" class="headerlink" title="创建 Cassandra 数据目录、日志目录"></a>创建 Cassandra 数据目录、日志目录</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cd /work/cassandra</span></span><br><span class="line"><span class="comment"># </span></span><br><span class="line"><span class="comment"># 创建 数据目录、日志目录</span></span><br><span class="line"><span class="comment"># mkdir data logs</span></span><br><span class="line"><span class="comment"># </span></span><br><span class="line"><span class="comment"># ls</span></span><br><span class="line">bin conf data doc interface javadoc lib logs pylib tools</span><br><span class="line"><span class="comment"># </span></span><br><span class="line"><span class="comment"># 数据库目录权限</span></span><br><span class="line"><span class="comment"># chown -R cassandra.cassandra .</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="创建启停脚本"><a href="#创建启停脚本" class="headerlink" title="创建启停脚本"></a>创建启停脚本</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pwd</span></span><br><span class="line">/work/cassandra</span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># cat start.sh </span></span><br><span class="line">nohup bin/cassandra &gt; /dev/null 2&gt;&amp;1 &amp;</span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># cat bin/stop-server</span></span><br><span class="line">user=`whoami`</span><br><span class="line">pgrep -u <span class="variable">$user</span> -f cassandra | xargs <span class="built_in">kill</span> -15</span><br><span class="line"><span class="comment"># cat stop.sh </span></span><br><span class="line">bin/stop-server</span><br><span class="line"><span class="comment">#</span></span><br></pre></td></tr></table></figure>
+
+<div class="note info">
+            <p>记得要将数据库目录归属权限授予用户 cassandra  </p>
+          </div>
+
+<h3 id="配置文件"><a href="#配置文件" class="headerlink" title="配置文件"></a>配置文件</h3><ul>
+<li>cassandra.yaml<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br></pre></td><td class="code"><pre><span class="line">cluster_name: <span class="string">'Test Cluster'</span></span><br><span class="line">num_tokens: 256</span><br><span class="line">hinted_handoff_enabled: <span class="literal">true</span></span><br><span class="line">hinted_handoff_throttle_in_kb: 1024</span><br><span class="line">max_hints_delivery_threads: 2</span><br><span class="line">hints_directory: /work/cassandra/data/hints</span><br><span class="line">hints_flush_period_in_ms: 10000</span><br><span class="line">max_hints_file_size_in_mb: 128</span><br><span class="line">batchlog_replay_throttle_in_kb: 1024</span><br><span class="line">authenticator: AllowAllAuthenticator</span><br><span class="line">authorizer: AllowAllAuthorizer</span><br><span class="line">role_manager: CassandraRoleManager</span><br><span class="line">roles_validity_in_ms: 2000</span><br><span class="line">permissions_validity_in_ms: 2000</span><br><span class="line">credentials_validity_in_ms: 2000</span><br><span class="line">partitioner: org.apache.cassandra.dht.Murmur3Partitioner</span><br><span class="line">data_file_directories: </span><br><span class="line">    - /work/cassandra/data</span><br><span class="line">commitlog_directory: /work/cassandra/data/commitlog</span><br><span class="line">cdc_enabled: <span class="literal">false</span></span><br><span class="line">disk_failure_policy: stop</span><br><span class="line">commit_failure_policy: stop</span><br><span class="line">prepared_statements_cache_size_mb:</span><br><span class="line">thrift_prepared_statements_cache_size_mb:</span><br><span class="line">key_cache_size_in_mb:</span><br><span class="line">key_cache_save_period: 14400</span><br><span class="line">row_cache_size_in_mb: 0</span><br><span class="line">row_cache_save_period: 0</span><br><span class="line">counter_cache_size_in_mb:</span><br><span class="line">counter_cache_save_period: 7200</span><br><span class="line">saved_caches_directory: /work/cassandra/data/saved_caches</span><br><span class="line">commitlog_sync: periodic</span><br><span class="line">commitlog_sync_period_in_ms: 10000</span><br><span class="line">commitlog_segment_size_in_mb: 32</span><br><span class="line">seed_provider:</span><br><span class="line">  - class_name: org.apache.cassandra.locator.SimpleSeedProvider</span><br><span class="line">    parameters:</span><br><span class="line">      - seeds: <span class="string">"192.168.1.78,192.168.1.66,192.168.1.67"</span></span><br><span class="line">concurrent_reads: 32</span><br><span class="line">concurrent_writes: 32</span><br><span class="line">concurrent_counter_writes: 32</span><br><span class="line">concurrent_materialized_view_writes: 32</span><br><span class="line">memtable_allocation_type: heap_buffers</span><br><span class="line">index_summary_capacity_in_mb:</span><br><span class="line">index_summary_resize_interval_in_minutes: 60</span><br><span class="line">trickle_fsync: <span class="literal">false</span></span><br><span class="line">trickle_fsync_interval_in_kb: 10240</span><br><span class="line">storage_port: 7000</span><br><span class="line">ssl_storage_port: 7001</span><br><span class="line">listen_address: 192.168.1.78 </span><br><span class="line">start_native_transport: <span class="literal">true</span></span><br><span class="line">native_transport_port: 9042</span><br><span class="line">start_rpc: <span class="literal">true</span></span><br><span class="line">rpc_address: 192.168.1.78 </span><br><span class="line">rpc_port: 9160</span><br><span class="line">rpc_keepalive: <span class="literal">true</span></span><br><span class="line">rpc_server_type: sync</span><br><span class="line">auto_snapshot: <span class="literal">true</span></span><br><span class="line">column_index_size_in_kb: 64</span><br><span class="line">column_index_cache_size_in_kb: 2</span><br><span class="line">compaction_throughput_mb_per_sec: 16</span><br><span class="line">sstable_preemptive_open_interval_in_mb: 50</span><br><span class="line">read_request_timeout_in_ms: 5000</span><br><span class="line">range_request_timeout_in_ms: 10000</span><br><span class="line">write_request_timeout_in_ms: 2000</span><br><span class="line">counter_write_request_timeout_in_ms: 5000</span><br><span class="line">cas_contention_timeout_in_ms: 1000</span><br><span class="line">truncate_request_timeout_in_ms: 60000</span><br><span class="line">request_timeout_in_ms: 10000</span><br><span class="line">slow_query_log_timeout_in_ms: 500</span><br><span class="line">cross_node_timeout: <span class="literal">false</span></span><br><span class="line">endpoint_snitch: SimpleSnitch</span><br><span class="line">dynamic_snitch_update_interval_in_ms: 100 </span><br><span class="line">dynamic_snitch_reset_interval_in_ms: 600000</span><br><span class="line">dynamic_snitch_badness_threshold: 0.1</span><br><span class="line">request_scheduler: org.apache.cassandra.scheduler.NoScheduler</span><br><span class="line">internode_compression: dc</span><br><span class="line">inter_dc_tcp_nodelay: <span class="literal">false</span></span><br><span class="line">tracetype_query_ttl: 86400</span><br><span class="line">tracetype_repair_ttl: 604800</span><br><span class="line">enable_user_defined_functions: <span class="literal">false</span></span><br><span class="line">enable_scripted_user_defined_functions: <span class="literal">false</span></span><br><span class="line">windows_timer_interval: 1</span><br><span class="line">gc_warn_threshold_in_ms: 1000</span><br><span class="line">back_pressure_enabled: <span class="literal">false</span></span><br><span class="line">back_pressure_strategy:</span><br><span class="line">    - class_name: org.apache.cassandra.net.RateBasedBackPressure</span><br><span class="line">      parameters:</span><br><span class="line">        - high_ratio: 0.90</span><br><span class="line">          factor: 5</span><br><span class="line">          flow: FAST</span><br><span class="line">enable_materialized_views: <span class="literal">true</span></span><br><span class="line">enable_sasi_indexes: <span class="literal">true</span></span><br></pre></td></tr></table></figure></li>
+<li>jvm.options 限制进程最大内存，避免 OOM<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">-Xms16G</span><br><span class="line">-Xmx16G</span><br><span class="line">-Xmn4G</span><br></pre></td></tr></table></figure>
+<h1 id="集群部署"><a href="#集群部署" class="headerlink" title="集群部署"></a>集群部署</h1></li>
+</ul>
+<p>服务器列表</p>
+<ul>
+<li>192.168.1.66</li>
+<li>192.168.1.67</li>
+<li>192.168.1.78</li>
+</ul>
+<h2 id="启动步骤"><a href="#启动步骤" class="headerlink" title="启动步骤"></a>启动步骤</h2><ul>
+<li>在各个节点上创建 cassandra 用户，安装 JDK、Cassandra 数据库、Python环境</li>
+<li>配置统一集群的名字</li>
+<li>为每个节点分配一个IP</li>
+<li>确定种子节点，不需要配置全部节点</li>
+<li>如果是多数据中心，为每个数据中心和机架确定命名约定</li>
+</ul>
+<h2 id="启动节点"><a href="#启动节点" class="headerlink" title="启动节点"></a>启动节点</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pwd</span></span><br><span class="line">/work/cassandra</span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># 切换到 cassandra 用户</span></span><br><span class="line"><span class="comment"># su cassandra</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line">$ ./start.sh</span><br></pre></td></tr></table></figure>
+
+<h2 id="如需关停节点"><a href="#如需关停节点" class="headerlink" title="如需关停节点"></a>如需关停节点</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># pwd</span></span><br><span class="line">/work/cassandra</span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># 切换到 cassandra 用户</span></span><br><span class="line"><span class="comment"># su cassandra</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line">$ ./stop.sh</span><br></pre></td></tr></table></figure>
+
+<h2 id="查看集群状态"><a href="#查看集群状态" class="headerlink" title="查看集群状态"></a>查看集群状态</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># nodetool status</span></span><br><span class="line">Datacenter: datacenter1</span><br><span class="line">=======================</span><br><span class="line">Status=Up/Down</span><br><span class="line">|/ State=Normal/Leaving/Joining/Moving</span><br><span class="line">--  Address       Load       Tokens       Owns (effective)  Host ID                               Rack</span><br><span class="line">UN  192.168.1.66  3.97 GiB   256          32.3%             641c928e-873d-4d6d-9c1e-a473206193f4  rack1</span><br><span class="line">UN  192.168.1.67  3.99 GiB   256          32.6%             ca4b1c70-1077-4963-89ed-583307cd2b17  rack1</span><br><span class="line">UN  192.168.1.78  4.52 GiB   256          35.1%             0618f9f6-ac66-43cb-bf39-edd70519d409  rack1</span><br></pre></td></tr></table></figure>
+
+<h1 id="nodetool-工具使用"><a href="#nodetool-工具使用" class="headerlink" title="nodetool 工具使用"></a><code>nodetool</code> 工具使用</h1><ul>
+<li><p>nodetool 工具使用帮助</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 列出nodetool所有可用的命令</span></span><br><span class="line">$ nodetool <span class="built_in">help</span> </span><br><span class="line"></span><br><span class="line"><span class="comment"># 列出指定command 的帮助内容</span></span><br><span class="line">$ nodetool <span class="built_in">help</span> <span class="built_in">command</span>-name</span><br><span class="line"></span><br><span class="line"><span class="comment"># 例如：查看status 命令的详细帮助内容</span></span><br><span class="line">$ nodetool <span class="built_in">help</span> status</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看集群运行状态</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ nodetool status</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>移除某个废弃节点</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 命令模板</span></span><br><span class="line">$ nodetool &lt;options&gt; removenode -- &lt;status&gt; | &lt;force&gt; | &lt;ID&gt;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 使用实例</span></span><br><span class="line"><span class="comment"># 移除Host ID为 641c928e-873d-4d6d-9c1e-a473206193f4 的节点</span></span><br><span class="line">$ nodetool removenode 641c928e-873d-4d6d-9c1e-a473206193f4</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看节点删除状态</span></span><br><span class="line">$ nodetool removenode status</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>参看某个节点负载，内存使用情况</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ nodetool info</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看各个CF的详细统计信息，包括读写次数、响应时间、memtable信息等</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ nodetool cfstats</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>其他</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ nodetool <span class="built_in">help</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Cassandra/" rel="tag"><i class="fa fa-tag"></i> Cassandra</a>
+              <a href="/tags/NoSQL/" rel="tag"><i class="fa fa-tag"></i> NoSQL</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/04/14/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-001/" rel="prev" title="Cassandra 简介">
+      <i class="fa fa-chevron-left"></i> Cassandra 简介
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/18/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-003/" rel="next" title="Cassandra 监控方案">
+      Cassandra 监控方案 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#准备安装包"><span class="nav-number">1.</span> <span class="nav-text">准备安装包</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#基础环境安装"><span class="nav-number">2.</span> <span class="nav-text">基础环境安装</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#项目路径-示例地址-work-cassandra"><span class="nav-number">2.1.</span> <span class="nav-text">项目路径 (示例地址: &#x2F;work&#x2F;cassandra )</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安装-JDK1-8-以-jdk1-8-0-191-为例"><span class="nav-number">2.2.</span> <span class="nav-text">安装 JDK1.8 (以 jdk1.8.0_191 为例)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#检查-python-环境"><span class="nav-number">2.3.</span> <span class="nav-text">检查 python 环境</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#解压缩-Cassandra-安装包"><span class="nav-number">2.4.</span> <span class="nav-text">解压缩 Cassandra 安装包</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#配置集群节点"><span class="nav-number">3.</span> <span class="nav-text">配置集群节点</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Cassandra-基础环境配置"><span class="nav-number">3.1.</span> <span class="nav-text">Cassandra 基础环境配置</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#添加-cassandra-用户"><span class="nav-number">3.1.1.</span> <span class="nav-text">添加 cassandra 用户</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#添加环境变量"><span class="nav-number">3.1.2.</span> <span class="nav-text">添加环境变量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建-Cassandra-数据目录、日志目录"><span class="nav-number">3.1.3.</span> <span class="nav-text">创建 Cassandra 数据目录、日志目录</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建启停脚本"><span class="nav-number">3.1.4.</span> <span class="nav-text">创建启停脚本</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#配置文件"><span class="nav-number">3.1.5.</span> <span class="nav-text">配置文件</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#集群部署"><span class="nav-number">4.</span> <span class="nav-text">集群部署</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#启动步骤"><span class="nav-number">4.1.</span> <span class="nav-text">启动步骤</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#启动节点"><span class="nav-number">4.2.</span> <span class="nav-text">启动节点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#如需关停节点"><span class="nav-number">4.3.</span> <span class="nav-text">如需关停节点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#查看集群状态"><span class="nav-number">4.4.</span> <span class="nav-text">查看集群状态</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#nodetool-工具使用"><span class="nav-number">5.</span> <span class="nav-text">nodetool 工具使用</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Eter"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Eter</p>
+  <div class="site-description" itemprop="description">但行好事 莫问前程</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">19</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/" title="GitHub → https:&#x2F;&#x2F;github.com"><i class="fa fa-fw fa-github"></i>GitHub</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://golang.org/doc/effective_go.html" title="https:&#x2F;&#x2F;golang.org&#x2F;doc&#x2F;effective_go.html" rel="noopener" target="_blank">Effective Go</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.golang.org/profiling-go-programs" title="https:&#x2F;&#x2F;blog.golang.org&#x2F;profiling-go-programs" rel="noopener" target="_blank">Profiling Go Programs</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://doc.rust-lang.org/book/" title="https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;book&#x2F;" rel="noopener" target="_blank">The Rust Programming Language</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://csoulsi.github.io/" title="https:&#x2F;&#x2F;csoulsi.github.io" rel="noopener" target="_blank">csoulsi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://schnappi618.github.io/" title="https:&#x2F;&#x2F;schnappi618.github.io&#x2F;" rel="noopener" target="_blank">schnappi618</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+      
+        <script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+        <div class="widget-wrap">
+          <h3 class="widget-title">Tag Cloud</h3>
+          <div id="myCanvasContainer" class="widget tagcloud">
+            <canvas width="250" height="250" id="resCanvas" style="width:100%">
+              <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/CPP/" rel="tag">CPP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cassandra/" rel="tag">Cassandra</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go/" rel="tag">Go</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Go-Micro/" rel="tag">Go Micro</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Grafana/" rel="tag">Grafana</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Linux/" rel="tag">Linux</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NoSQL/" rel="tag">NoSQL</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Prometheus/" rel="tag">Prometheus</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLA/" rel="tag">SLA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLI/" rel="tag">SLI</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/SLO/" rel="tag">SLO</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Smart-Pointers/" rel="tag">Smart Pointers</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiDB/" rel="tag">TiDB</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/TiKV/" rel="tag">TiKV</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/nightingale/" rel="tag">nightingale</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/pprof/" rel="tag">pprof</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%86%85%E5%AD%98/" rel="tag">内存</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%8F%AF%E9%9D%A0%E6%80%A7/" rel="tag">可靠性</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" rel="tag">微服务</a><span class="tag-list-count">6</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag">架构</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%9B%91%E6%8E%A7/" rel="tag">监控</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E7%A8%8B/" rel="tag">编程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E7%BC%96%E8%AF%91/" rel="tag">编译</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E8%B0%83%E8%AF%95/" rel="tag">调试</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%93%BE%E6%8E%A5/" rel="tag">链接</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/%E9%9A%8F%E7%AC%94/" rel="tag">随笔</a><span class="tag-list-count">1</span></li></ul>
+            </canvas>
+          </div>
+        </div>
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heartbeat"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">HulkLab</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">62k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">56 分钟</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+<script src="/js/bookmark.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
