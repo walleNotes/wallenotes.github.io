@@ -91,39 +91,6 @@
     
     
     <entry>
-      <title>n9e - 生产环境部署</title>
-      <link href="/2020/05/12/%E6%9E%B6%E6%9E%84/%E7%9B%91%E6%8E%A7/n9e/n9e-001/"/>
-      <url>/2020/05/12/%E6%9E%B6%E6%9E%84/%E7%9B%91%E6%8E%A7/n9e/n9e-001/</url>
-      
-        <content type="html"><![CDATA[<blockquote class="blockquote-center"><p>新一代企业级监控解决方案: 夜莺 </p></blockquote><a id="more"></a><h1 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h1><p><code>Nightingale</code> 是一套衍生自 <code>Open-Falcon</code> 的互联网监控解决方案，由滴滴开源。<br>目前已经有超过200家商业公司在生产环境使用，官方团队也在逐步优化，夜莺可以说是一个颠覆级版本，性能、易用性、可用性都做了大幅改进，在滴滴抗住了7.7亿（包括物理机、虚机、容器、网络、业务模块的）监控指标，这是一个新的征程，期待未来做的更好！</p><p>官方链接: <a href="https://n9e.didiyun.com/zh/docs/" target="_blank" rel="noopener">https://n9e.didiyun.com/zh/docs/</a></p><h2 id="与Open-Falcon的不同点"><a href="#与Open-Falcon的不同点" class="headerlink" title="与Open-Falcon的不同点"></a>与Open-Falcon的不同点</h2><ul><li>告警引擎重构为推拉结合模式，通过推模式保证大部分策略判断的效率，通过拉模式支持了nodata告警，去除原来的nodata组件，简化系统部署难度</li><li>引入了服务树，对endpoint进行层级管理，去除原来扁平的HostGroup，同时干掉告警模板，告警策略直接与服务树节点绑定，大幅提升灵活度和易用性</li><li>干掉原来的基于数据库的索引库，改成内存模式，单独抽出一个index模块处理索引，避免了原来MySQL单表达到亿级的尴尬局面，索引基于内存之后效率也大幅提升</li><li>存储模块Graph，引入facebook的Gorilla，即内存TSDB，近期几个小时的数据默认存内存，大幅提升数据查询效率，硬盘存储方式仍然使用rrdtool</li><li>告警引擎judge模块通过心跳机制做到了故障自动摘除，再也不用担心单个judge挂掉导致部分策略失效的问题，index模块也是采用类似方式保证可用性</li><li>客户端中内置了日志匹配指标抽取能力，web页面上支持了日志匹配规则的配置，同时也支持读取目标机器特定目录下的配置文件的方式，让业务指标监控更为易用</li><li>将portal(falcon-plus中的api)、uic、dashboard、hbs、alarm合并为一个模块：monapi，简化了系统整体部署难度，原来的部分模块间调用变成进程内方法调用，稳定性更好</li></ul><h2 id="与Open-Falcon的相同点"><a href="#与Open-Falcon的相同点" class="headerlink" title="与Open-Falcon的相同点"></a>与Open-Falcon的相同点</h2><ul><li>数据模型没有变化，仍然是metric、endpoint、tags的组织方式，所以agent基本是可以复用的，Nightingale中的agent叫collector，融合了原来Open-Falcon的agent和falcon-log-agent的逻辑，各种监控插件也都是可以复用的</li><li>数据流向和整体处理逻辑是类似的，仍然使用灵活的推模型，分为数据存储和告警判断两条链路，下一节我们基于架构图详细展开</li></ul><div class="note success">            <p>介绍完了 <code>Nightingale</code>，接下来我们看下如何在生产环境中部署?  </p>          </div><h1 id="夜莺架构"><a href="#夜莺架构" class="headerlink" title="夜莺架构"></a>夜莺架构</h1><img src="/2020/05/12/%E6%9E%B6%E6%9E%84/%E7%9B%91%E6%8E%A7/n9e/n9e-001/n9e-arch.png" class="" title="夜莺架构"><h1 id="组件介绍"><a href="#组件介绍" class="headerlink" title="组件介绍"></a>组件介绍</h1><ul><li><strong>collector</strong><br>即 <code>agent</code>，可以采集机器常见指标，支持日志监控，支持插件机制，支持业务通过接口直接上报数据</li><li><strong>transfer</strong><br>提供 <code>rpc</code> 接口接收 <code>collector</code> 上报的数据，然后通过一致性哈希，将数据转发给多台 <code>tsdb</code> 和多台 <code>judge</code></li><li><strong>tsdb</strong><br>即原来的 <code>graph</code> 组件，用于存储历史数据，支持配置为双写模式提升系统容灾能力， <code>tsdb</code> 会把监控数据转发一份给 <code>index</code></li><li><strong>index</strong><br>是索引模块，替换原来的 <code>mysql</code> 方案，在内存里构建索引，便于后续数据检索，性能大幅提升</li><li><strong>judge</strong><br>是告警引擎，从 <code>monapi(portal)</code> 同步监控策略，然后对接收到的数据做告警判断，如满足阈值，则生成告警事件推到 <code>redis</code></li><li><strong>monapi(alarm)</strong><br>从 <code>redis</code> 读取 <code>judge</code> 生成的事件，进行二次处理，补充一些元信息，生成告警消息，重新推回 <code>redis</code></li><li><strong>各发送组件</strong><br>比如 <code>mail-sender</code>、<code>sms-sender</code> 等，从 <code>redis</code> 读取告警消息，发送告警，抽出各类 <code>sender</code> 是为了后续定制方便</li><li><strong>monapi</strong><br>集成了原来多个模块的功能，提供接口给 <code>js</code> 调用，<code>api</code>前缀为 <code>/api/portal</code>，数据查询走 <code>transfer</code> ，干掉了原来的 <code>query</code> 组件，<code>api</code> 前缀为 <code>/api/transfer</code>，索引查询的 <code>api</code> 前缀 <code>/api/index</code> ，于是，前面搭建 <code>nginx</code>，即可通过不同 <code>location</code> 将请求转发到不同后端</li><li><strong>数据库</strong><br>仍然使用 <code>mysql</code>，主要存储的内容包括：用户信息、团队信息、树节点信息、告警策略、监控大盘、屏蔽策略、采集策略、部分组件心跳信息等</li></ul><h1 id="源码编译"><a href="#源码编译" class="headerlink" title="源码编译"></a>源码编译</h1><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 该项目没有使用 go module 管理，需要放到github.com/didi下编译</span></span><br><span class="line">mkdir -p <span class="variable">$GOPATH</span>/src/github.com/didi</span><br><span class="line"><span class="built_in">cd</span> <span class="variable">$GOPATH</span>/src/github.com/didi</span><br><span class="line"></span><br><span class="line"><span class="comment"># clone代码, 指定当前稳定版本 v1.3.3</span></span><br><span class="line">git <span class="built_in">clone</span> -b v1.3.3 https://github.com/didi/nightingale.git</span><br><span class="line"><span class="built_in">cd</span> nightingale &amp;&amp; ./control build &amp;&amp; ./control pack</span><br></pre></td></tr></table></figure>]]></content>
-      
-      
-      <categories>
-          
-          <category> 架构 </category>
-          
-          <category> 监控 </category>
-          
-          <category> n9e </category>
-          
-      </categories>
-      
-      
-        <tags>
-            
-            <tag> 架构 </tag>
-            
-            <tag> nightingale </tag>
-            
-            <tag> 监控 </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
       <title>Cassandra 架构设计</title>
       <link href="/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/"/>
       <url>/2020/04/25/%E6%95%B0%E6%8D%AE%E5%BA%93/Cassandra/Cassandra-004/</url>
